@@ -2,6 +2,8 @@ import os
 import json
 import logging
 import time
+import threading
+from collections import deque
 from datetime import datetime
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -34,6 +36,9 @@ MIST_API_URL = os.environ.get('MIST_API_URL', 'https://api.mist.com/api/v1')
 MIST_API_TOKEN = os.environ.get('MIST_API_TOKEN', '')
 MIST_ORG_ID = os.environ.get('MIST_ORG_ID', '')
 CLAUDE_MODEL = os.environ.get('CLAUDE_MODEL', 'claude-sonnet-4-6')
+WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
+
+N8N_URL = os.environ.get('N8N_URL', 'http://192.168.0.75:30109')
 
 REQUEST_COUNT = Counter('mist_requests_total', 'Total requests', ['method', 'endpoint', 'status'])
 REQUEST_LATENCY = Histogram('mist_request_latency_seconds', 'Request latency')
@@ -41,6 +46,10 @@ REQUEST_LATENCY = Histogram('mist_request_latency_seconds', 'Request latency')
 # In-memory automation store (use DB in production)
 automations = {}
 _automation_counter = [1]
+
+# Ring buffers for n8n event/analysis feed (survives only while container runs)
+_event_buffer    = deque(maxlen=50)
+_analysis_buffer = deque(maxlen=20)
 
 
 # ============================================================================
@@ -540,6 +549,113 @@ def site_sle_metric(site_id, metric):
 @app.route('/api/v1/orgs/<org_id>/logs', methods=['GET'])
 def org_logs(org_id):
     return mist_json(mist_request('GET', f'/orgs/{org_id}/logs', params=request.args))
+
+
+# ============================================================================
+# N8N INTEGRATION
+# ============================================================================
+
+def _n8n_forward(path, payload):
+    """Non-blocking fire-and-forget to n8n webhook."""
+    try:
+        requests.post(
+            f'{N8N_URL}/webhook/{path}',
+            json=payload,
+            timeout=5,
+            headers={'Content-Type': 'application/json'},
+        )
+    except Exception as e:
+        log.warning('n8n forward to %s failed: %s', path, e)
+
+
+@app.route('/webhook/mist', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def mist_webhook_receiver():
+    """Receive Mist Cloud webhooks, buffer them, and forward to n8n."""
+    secret = request.headers.get('X-Mist-Secret', '') or request.args.get('secret', '')
+    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    payload = request.get_json(silent=True) or {}
+    payload['_received_at'] = int(time.time())
+    payload['_source_ip'] = request.remote_addr
+
+    _event_buffer.appendleft(payload)
+    threading.Thread(target=_n8n_forward, args=('mist-events', payload), daemon=True).start()
+    log.info('Mist webhook received: topic=%s events=%s',
+             payload.get('topic', '?'), len(payload.get('events', [])))
+    return jsonify({'status': 'ok', 'forwarded_to': f'{N8N_URL}/webhook/mist-events'}), 200
+
+
+@app.route('/webhook/n8n/analysis', methods=['POST'])
+def n8n_analysis_callback():
+    """n8n posts Claude's completed analysis here after processing a high-priority event."""
+    data = request.get_json(silent=True) or {}
+    data['_received_at'] = int(time.time())
+    _analysis_buffer.appendleft(data)
+    log.info('n8n analysis received: priority=%s', data.get('priority', '?'))
+    return jsonify({'status': 'ok'}), 200
+
+
+@app.route('/api/n8n/status', methods=['GET'])
+def n8n_status():
+    """Ping n8n and return reachability."""
+    try:
+        r = requests.get(f'{N8N_URL}/healthz', timeout=3)
+        return jsonify({'reachable': True, 'http_status': r.status_code, 'url': N8N_URL})
+    except Exception as e:
+        return jsonify({'reachable': False, 'error': str(e), 'url': N8N_URL}), 200
+
+
+@app.route('/api/n8n/events', methods=['GET'])
+def n8n_events():
+    """Return buffered raw Mist webhook events."""
+    return jsonify(list(_event_buffer))
+
+
+@app.route('/api/n8n/analyses', methods=['GET'])
+def n8n_analyses():
+    """Return buffered Claude analysis results from n8n."""
+    return jsonify(list(_analysis_buffer))
+
+
+@app.route('/api/n8n/chat', methods=['POST'])
+@limiter.limit('30 per minute')
+def n8n_chat():
+    """Proxy a chat query through n8n's mist-chat workflow."""
+    try:
+        body = request.get_json() or {}
+        body.setdefault('org_id', MIST_ORG_ID)
+        r = requests.post(
+            f'{N8N_URL}/webhook/mist-chat',
+            json=body,
+            timeout=40,
+            headers={'Content-Type': 'application/json'},
+        )
+        return mist_json(r)
+    except requests.Timeout:
+        return jsonify({'error': 'n8n timeout — workflow did not respond in 40 s'}), 504
+    except Exception as e:
+        return jsonify({'error': str(e)}), 502
+
+
+@app.route('/api/n8n/action', methods=['POST'])
+@limiter.limit('20 per minute')
+def n8n_action():
+    """Proxy a Mist API action through n8n's mist-api workflow."""
+    try:
+        body = request.get_json() or {}
+        body.setdefault('org_id', MIST_ORG_ID)
+        r = requests.post(
+            f'{N8N_URL}/webhook/mist-api',
+            json=body,
+            timeout=40,
+            headers={'Content-Type': 'application/json'},
+        )
+        return mist_json(r)
+    except requests.Timeout:
+        return jsonify({'error': 'n8n timeout — workflow did not respond in 40 s'}), 504
+    except Exception as e:
+        return jsonify({'error': str(e)}), 502
 
 
 if __name__ == '__main__':

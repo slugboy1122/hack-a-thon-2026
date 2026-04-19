@@ -277,6 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
       <div class="sidebar-section">
         <div class="sidebar-label">Intelligence</div>
         <div class="nav-item" onclick="showTab('ai');setActive(this)">✦ AI Assistant</div>
+        <div class="nav-item" onclick="showTab('n8n');setActive(this)">⚡ n8n AI Ops <span class="nav-badge info" id="badge-n8n">—</span></div>
         <div class="nav-item" onclick="showTab('log');setActive(this)">≡ Audit Log</div>
       </div>
     </nav>
@@ -443,6 +444,81 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
               <div class="card" style="cursor:pointer" onclick="quickAsk('List all my sites and their details')"><div class="card-body" style="padding:12px 14px"><div style="font-size:12px;font-weight:500;margin-bottom:3px">Sites overview</div><div style="font-size:11px;color:var(--muted)">"List all my sites"</div></div></div>
               <div class="card" style="cursor:pointer" onclick="quickAsk('Which access points are offline or disconnected?')"><div class="card-body" style="padding:12px 14px"><div style="font-size:12px;font-weight:500;margin-bottom:3px">Offline devices</div><div style="font-size:11px;color:var(--muted)">"Which APs are offline?"</div></div></div>
               <div class="card" style="cursor:pointer" onclick="quickAsk('Show me all WLANs configured in my org')"><div class="card-body" style="padding:12px 14px"><div style="font-size:12px;font-weight:500;margin-bottom:3px">WLAN inventory</div><div style="font-size:11px;color:var(--muted)">"Show all WLANs"</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- N8N AI OPS -->
+      <div id="tab-n8n" class="tab-content">
+        <div class="section-header">
+          <div>
+            <div class="section-title">n8n AI Ops</div>
+            <div class="section-sub">Mist AI Ops — Claude + Webhooks workflow at <span style="font-family:var(--mono);color:var(--accent2)" id="n8n-url-label"></span></div>
+          </div>
+          <button class="btn" onclick="loadN8n()" style="font-size:11px;padding:4px 10px">Refresh</button>
+        </div>
+
+        <!-- Status + webhook config -->
+        <div class="grid-2" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Workflow Status</span></div>
+            <div class="card-body" id="n8n-status-body">
+              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Checking n8n...</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Mist Webhook Config</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">CONFIGURE IN MIST PORTAL</span></div>
+            <div class="card-body" style="padding:14px 18px">
+              <div style="margin-bottom:10px">
+                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Webhook URL (point Mist Cloud here)</div>
+                <div id="n8n-webhook-url" style="font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl()" title="Click to copy">—</div>
+              </div>
+              <div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">n8n direct (backup)</div>
+                <div id="n8n-direct-url" style="font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;word-break:break-all">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-header"><span class="card-title">Quick Actions</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">ROUTED VIA n8n mist-api</span></div>
+          <div class="card-body" style="padding:14px 18px">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+              <button class="btn" onclick="n8nAction('get_sites')" style="font-size:12px">◈ Get Sites</button>
+              <button class="btn" onclick="n8nActionWithSite('get_devices')" style="font-size:12px">◉ Get Devices</button>
+              <button class="btn" onclick="n8nActionWithSite('get_clients')" style="font-size:12px">◎ Get Clients</button>
+              <button class="btn" onclick="n8nAction('get_alarms')" style="font-size:12px">⚠ Get Alarms</button>
+              <button class="btn btn-danger" onclick="n8nRestartDevice()" style="font-size:12px">↺ Restart Device</button>
+            </div>
+            <div id="n8n-action-result" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--mono);font-size:11px;line-height:1.7;max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-word"></div>
+          </div>
+        </div>
+
+        <!-- Claude analyses from n8n -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-header">
+            <span class="card-title">Claude Analyses</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="n8n-analyses-stamp">FROM n8n HIGH-PRIORITY EVENTS</span>
+          </div>
+          <div class="card-body" style="padding:8px 18px">
+            <div id="n8n-analyses-body" style="font-family:var(--mono);font-size:11px;color:var(--muted)">
+              // No analyses yet — high-priority Mist events trigger Claude via n8n
+            </div>
+          </div>
+        </div>
+
+        <!-- Raw event feed -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Mist Event Feed</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="n8n-events-stamp">RECEIVED VIA /webhook/mist</span>
+          </div>
+          <div class="card-body" style="padding:8px 18px">
+            <div class="event-log" id="n8n-events-body" style="max-height:280px">
+              <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0">// No events yet — configure Mist to send webhooks to the URL above</div>
             </div>
           </div>
         </div>
@@ -641,7 +717,7 @@ function startApp() {
   document.getElementById('app-shell').style.display   = 'flex';
   document.getElementById('user-pill').textContent = SESSION.self?.email || '';
   loadAll();
-  setTimeout(() => { loadWlans(); loadSwitches(); loadWan(); loadLog(); }, 1200);
+  setTimeout(() => { loadWlans(); loadSwitches(); loadWan(); loadLog(); loadN8n(); }, 1200);
 }
 
 async function loadAll() {
@@ -1064,6 +1140,153 @@ function renderTshootResult(d, mac, query) {
     <div style="margin-top:12px;font-size:10px;color:var(--muted);display:flex;justify-content:space-between">
       <span>Type: ${tshootType}</span><span>${new Date().toLocaleTimeString()}</span>
     </div>`;
+}
+
+// ── n8n AI Ops ─────────────────────────────────────────────────────────────────
+const N8N_BASE = 'http://192.168.0.75:30109';
+const WEBHOOK_HOST = window.location.origin;
+
+async function loadN8n() {
+  document.getElementById('n8n-url-label').textContent = N8N_BASE;
+  document.getElementById('n8n-webhook-url').textContent = WEBHOOK_HOST + '/webhook/mist';
+  document.getElementById('n8n-direct-url').textContent = N8N_BASE + '/webhook/mist-events';
+  await Promise.all([checkN8nStatus(), loadN8nAnalyses(), loadN8nEvents()]);
+}
+
+async function checkN8nStatus() {
+  const body = document.getElementById('n8n-status-body');
+  try {
+    const d = await (await fetch('/api/n8n/status')).json();
+    const dot = d.reachable ? 'var(--ok)' : 'var(--danger)';
+    const label = d.reachable ? 'REACHABLE' : 'UNREACHABLE';
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0"></div>
+        <span style="font-family:var(--mono);font-size:12px;color:${dot}">${label}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${N8N_BASE}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-family:var(--mono);font-size:10px">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="color:var(--muted);margin-bottom:3px">MIST EVENTS</div>
+          <div style="color:var(--accent2)">/webhook/mist-events</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="color:var(--muted);margin-bottom:3px">CHAT</div>
+          <div style="color:var(--accent2)">/webhook/mist-chat</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="color:var(--muted);margin-bottom:3px">API PROXY</div>
+          <div style="color:var(--accent2)">/webhook/mist-api</div>
+        </div>
+      </div>
+      ${!d.reachable ? `<div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--danger)">// ${d.error}</div>` : ''}`;
+  } catch(e) {
+    body.innerHTML = `<span style="font-family:var(--mono);font-size:11px;color:var(--danger)">// Status check failed: ${e.message}</span>`;
+  }
+}
+
+async function loadN8nAnalyses() {
+  const body  = document.getElementById('n8n-analyses-body');
+  const stamp = document.getElementById('n8n-analyses-stamp');
+  try {
+    const items = await (await fetch('/api/n8n/analyses')).json();
+    document.getElementById('badge-n8n').textContent = items.length || '0';
+    if (!items.length) {
+      body.innerHTML = '<div style="padding:8px 0">// No analyses yet — high-priority Mist events trigger Claude via n8n</div>';
+      return;
+    }
+    stamp.textContent = items.length + ' ANALYSES';
+    body.innerHTML = items.map(a => {
+      const ts = a._received_at ? new Date(a._received_at * 1000).toLocaleString() : (a.timestamp || '');
+      const priCls = a.priority === 'P1' ? 'danger' : a.priority === 'P2' ? 'warn' : 'ok';
+      const ec = a.event_context || {};
+      return `<div style="border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;background:var(--bg3)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span class="tag ${priCls}" style="font-size:11px">${a.priority || '?'}</span>
+          <span style="font-size:12px;font-weight:500">${ec.event_type || 'Event'}</span>
+          ${ec.site_name ? `<span style="font-size:11px;color:var(--muted)">${ec.site_name}</span>` : ''}
+          ${ec.device_name ? `<span class="tag info" style="font-size:10px">${ec.device_name}</span>` : ''}
+          <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)">${ts}</span>
+        </div>
+        <div style="font-size:11px;line-height:1.7;color:var(--text);white-space:pre-wrap;max-height:180px;overflow-y:auto">${a.analysis || '—'}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = `<span style="font-family:var(--mono);font-size:11px;color:var(--danger)">// Error: ${e.message}</span>`;
+  }
+}
+
+async function loadN8nEvents() {
+  const body  = document.getElementById('n8n-events-body');
+  const stamp = document.getElementById('n8n-events-stamp');
+  try {
+    const items = await (await fetch('/api/n8n/events')).json();
+    if (!items.length) {
+      body.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0">// No events yet — configure Mist to send webhooks to the URL above</div>';
+      return;
+    }
+    stamp.textContent = items.length + ' EVENTS BUFFERED';
+    body.innerHTML = items.map(ev => {
+      const ts  = ev._received_at ? new Date(ev._received_at * 1000).toLocaleTimeString() : '—';
+      const topic = ev.topic || 'unknown';
+      const cnt = ev.events?.length ?? '';
+      const lvl = topic.includes('alarm') || topic.includes('device_down') ? 'ERR'
+                : topic.includes('warn') ? 'WARN' : 'INFO';
+      return `<div class="event-item">
+        <span class="event-level ${lvl}">${lvl}</span>
+        <div class="event-msg"><strong>${topic}</strong>${cnt ? ' · ' + cnt + ' event(s)' : ''}</div>
+        <span class="event-time">${ts}</span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = `<span style="font-family:var(--mono);font-size:11px;color:var(--danger)">// Error: ${e.message}</span>`;
+  }
+}
+
+async function n8nAction(action, extra = {}) {
+  const resultEl = document.getElementById('n8n-action-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--muted)';
+  resultEl.textContent = `// Calling n8n action: ${action}...`;
+  try {
+    const r = await fetch('/api/n8n/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '' },
+      body: JSON.stringify({ action, org_id: ORG_ID, ...extra }),
+    });
+    const d = await r.json();
+    resultEl.style.color = 'var(--text)';
+    resultEl.textContent = JSON.stringify(d, null, 2);
+  } catch(e) {
+    resultEl.style.color = 'var(--danger)';
+    resultEl.textContent = '// Error: ' + e.message;
+  }
+}
+
+function n8nActionWithSite(action) {
+  const siteId = document.getElementById('org-site-select').value ||
+                 (allSites[0]?.id || '');
+  if (!siteId) { alert('Select a site first (header dropdown)'); return; }
+  n8nAction(action, { site_id: siteId });
+}
+
+function n8nRestartDevice() {
+  const mac = prompt('Enter device MAC address or ID to restart:');
+  if (!mac) return;
+  const siteId = document.getElementById('org-site-select').value || (allSites[0]?.id || '');
+  if (!siteId) { alert('Select a site first'); return; }
+  if (!confirm(`Restart device ${mac} at site ${siteId}?`)) return;
+  n8nAction('restart_device', { site_id: siteId, device_id: mac });
+}
+
+function copyWebhookUrl() {
+  const url = document.getElementById('n8n-webhook-url').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    const el = document.getElementById('n8n-webhook-url');
+    const orig = el.style.color;
+    el.style.color = 'var(--ok)';
+    setTimeout(() => { el.style.color = orig; }, 1200);
+  });
 }
 
 // ── Marvis Actions ─────────────────────────────────────────────────────────────
