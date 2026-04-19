@@ -325,73 +325,71 @@ def chat():
         return jsonify({'error': str(e)}), 500
 
 
+def mist_json(r):
+    """Return (json_body, status_code), tolerating empty or non-JSON Mist responses."""
+    if not r.content:
+        return jsonify({'status': 'ok'}), r.status_code
+    try:
+        return jsonify(r.json()), r.status_code
+    except Exception:
+        return jsonify({'error': f'Mist API {r.status_code}', 'detail': r.text[:500]}), r.status_code
+
+
 # Mist proxy endpoints
 @app.route('/api/v1/sites', methods=['GET'])
 def list_sites():
-    r = mist_request('GET', f'/orgs/{MIST_ORG_ID}/sites')
-    return jsonify(r.json()), r.status_code
+    return mist_json(mist_request('GET', f'/orgs/{MIST_ORG_ID}/sites'))
 
 
 @app.route('/api/v1/sites/<site_id>/devices', methods=['GET'])
 def list_devices(site_id):
-    r = mist_request('GET', f'/sites/{site_id}/devices')
-    return jsonify(r.json()), r.status_code
+    return mist_json(mist_request('GET', f'/sites/{site_id}/devices'))
 
 
 @app.route('/api/v1/sites/<site_id>/devices/<device_id>', methods=['GET'])
 def get_device(site_id, device_id):
-    r = mist_request('GET', f'/sites/{site_id}/devices/{device_id}')
-    return jsonify(r.json()), r.status_code
+    return mist_json(mist_request('GET', f'/sites/{site_id}/devices/{device_id}'))
 
 
 @app.route('/api/v1/sites/<site_id>/devices/<device_id>/reboot', methods=['POST'])
 def reboot_device(site_id, device_id):
-    r = mist_request('POST', f'/sites/{site_id}/devices/{device_id}/reboot')
-    return jsonify(r.json() if r.content else {'status': 'ok'}), r.status_code
+    return mist_json(mist_request('POST', f'/sites/{site_id}/devices/{device_id}/reboot'))
 
 
 @app.route('/api/v1/sites/<site_id>/stats/devices', methods=['GET'])
 def device_stats(site_id):
-    r = mist_request('GET', f'/sites/{site_id}/stats/devices')
-    return jsonify(r.json()), r.status_code
+    return mist_json(mist_request('GET', f'/sites/{site_id}/stats/devices'))
 
 
 @app.route('/api/v1/sites/<site_id>/stats/clients', methods=['GET'])
 def client_stats(site_id):
-    r = mist_request('GET', f'/sites/{site_id}/stats/clients')
-    return jsonify(r.json()), r.status_code
+    return mist_json(mist_request('GET', f'/sites/{site_id}/stats/clients'))
 
 
 @app.route('/api/v1/sites/<site_id>/wlans', methods=['GET', 'POST'])
 def wlans(site_id):
     if request.method == 'GET':
-        r = mist_request('GET', f'/sites/{site_id}/wlans')
-    else:
-        r = mist_request('POST', f'/sites/{site_id}/wlans', json=request.get_json())
-    return jsonify(r.json()), r.status_code
+        return mist_json(mist_request('GET', f'/sites/{site_id}/wlans'))
+    return mist_json(mist_request('POST', f'/sites/{site_id}/wlans', json=request.get_json()))
 
 
 @app.route('/api/v1/sites/<site_id>/wlans/<wlan_id>', methods=['GET', 'PUT', 'DELETE'])
 def wlan(site_id, wlan_id):
     if request.method == 'GET':
-        r = mist_request('GET', f'/sites/{site_id}/wlans/{wlan_id}')
-    elif request.method == 'PUT':
-        r = mist_request('PUT', f'/sites/{site_id}/wlans/{wlan_id}', json=request.get_json())
-    else:
-        r = mist_request('DELETE', f'/sites/{site_id}/wlans/{wlan_id}')
-    return jsonify(r.json() if r.content else {}), r.status_code
+        return mist_json(mist_request('GET', f'/sites/{site_id}/wlans/{wlan_id}'))
+    if request.method == 'PUT':
+        return mist_json(mist_request('PUT', f'/sites/{site_id}/wlans/{wlan_id}', json=request.get_json()))
+    return mist_json(mist_request('DELETE', f'/sites/{site_id}/wlans/{wlan_id}'))
 
 
 @app.route('/api/v1/orgs/<org_id>/alarms', methods=['GET'])
 def alarms(org_id):
-    r = mist_request('GET', f'/orgs/{org_id}/alarms')
-    return jsonify(r.json()), r.status_code
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/alarms'))
 
 
 @app.route('/api/v1/orgs/<org_id>/events', methods=['GET'])
 def events(org_id):
-    r = mist_request('GET', f'/orgs/{org_id}/events')
-    return jsonify(r.json()), r.status_code
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/events'))
 
 
 @app.route('/api/v1/webhooks/simulate', methods=['POST'])
@@ -468,8 +466,7 @@ def execute_automation(automation_id):
 
 @app.route('/api/v1/self', methods=['GET'])
 def self_info():
-    r = mist_request('GET', '/self')
-    return jsonify(r.json()), r.status_code
+    return mist_json(mist_request('GET', '/self'))
 
 
 if __name__ == '__main__':
