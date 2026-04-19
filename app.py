@@ -527,6 +527,16 @@ def org_marvis(org_id):
     return mist_json(mist_request('POST', f'/orgs/{org_id}/marvis', json=request.get_json()))
 
 
+@app.route('/api/v1/orgs/<org_id>/marvis/action', methods=['GET'])
+def org_marvis_action(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/marvis/action', params=request.args))
+
+
+@app.route('/api/v1/sites/<site_id>/sle/wireless/metric/<metric>/summary', methods=['GET'])
+def site_sle_metric(site_id, metric):
+    return mist_json(mist_request('GET', f'/sites/{site_id}/sle/wireless/metric/{metric}/summary', params=request.args))
+
+
 @app.route('/api/v1/orgs/<org_id>/logs', methods=['GET'])
 def org_logs(org_id):
     return mist_json(mist_request('GET', f'/orgs/{org_id}/logs', params=request.args))

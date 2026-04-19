@@ -154,6 +154,30 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 .tr-pill.danger{background:rgba(255,71,87,0.12);color:var(--danger)}
 .tr-pill.info{background:rgba(0,149,255,0.12);color:var(--accent2)}
 
+/* ── Marvis tile ── */
+.marvis-action-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.marvis-action-item:last-child{border-bottom:none}
+.marvis-action-icon{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.marvis-action-icon.danger{background:rgba(255,71,87,0.12);color:var(--danger)}
+.marvis-action-icon.warn{background:rgba(245,166,35,0.12);color:var(--warn)}
+.marvis-action-icon.ok{background:rgba(0,212,168,0.12);color:var(--ok)}
+.marvis-action-icon.info{background:rgba(0,149,255,0.12);color:var(--accent2)}
+.marvis-action-title{font-size:12px;font-weight:500;margin-bottom:2px}
+.marvis-action-sub{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.marvis-action-count{margin-left:auto;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap;align-self:center}
+.marvis-action-count.danger{background:rgba(255,71,87,0.15);color:var(--danger)}
+.marvis-action-count.warn{background:rgba(245,166,35,0.15);color:var(--warn)}
+.marvis-action-count.ok{background:rgba(0,212,168,0.15);color:var(--ok)}
+.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.mini-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.mini-label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px}
+.mini-score{font-size:22px;font-weight:600;line-height:1;letter-spacing:-0.5px}
+.mini-score.ok{color:var(--ok)} .mini-score.warn{color:var(--warn)} .mini-score.danger{color:var(--danger)} .mini-score.info{color:var(--accent2)}
+.mini-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:6px;overflow:hidden}
+.mini-bar-fill{height:100%;border-radius:2px;transition:width 0.4s ease}
+.portal-link{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--accent2);text-decoration:none;padding:3px 8px;border:1px solid rgba(0,149,255,0.3);border-radius:4px;transition:all 0.15s}
+.portal-link:hover{background:rgba(0,149,255,0.08);border-color:var(--accent2)}
+
 /* ── Misc ── */
 .spinner-sm{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -282,6 +306,41 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
           <div class="card-body" style="padding:0">
             <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>Clients</th><th>Status</th></tr></thead>
             <tbody id="dash-ap-body"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// Loading APs...</td></tr></tbody></table>
+          </div>
+        </div>
+
+        <!-- Marvis Intelligence -->
+        <div class="grid-2" style="margin-top:0">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <span class="card-title">Marvis Actions</span>
+                <span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:8px">AI-RECOMMENDED</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span id="marvis-actions-stamp" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></span>
+                <a class="portal-link" href="https://manage.mist.com/admin/?org_id=5755516e-44e6-4a4b-8b61-bf7fc3709415#!virtualAssistant/action" target="_blank" rel="noopener">Portal ↗</a>
+              </div>
+            </div>
+            <div class="card-body" id="marvis-actions-body" style="padding:10px 18px">
+              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Loading actions...</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <span class="card-title">Marvis Minis</span>
+                <span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:8px">CONNECTIVITY</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span id="marvis-minis-stamp" style="font-family:var(--mono);font-size:10px;color:var(--muted)">7d window</span>
+                <a class="portal-link" href="https://manage.mist.com/admin/?org_id=5755516e-44e6-4a4b-8b61-bf7fc3709415#!marvisMini?end=1776623712&start=1775977200&timeInterval=7d&view=dashboard" target="_blank" rel="noopener">Portal ↗</a>
+              </div>
+            </div>
+            <div class="card-body" id="marvis-minis-body" style="padding:14px 18px">
+              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Loading connectivity data...</span>
+            </div>
           </div>
         </div>
       </div>
@@ -448,8 +507,10 @@ const SESSION = {
   self:  JSON.parse(sessionStorage.getItem('tat_self') || 'null'),
 };
 
-let allSites = [];
-let allAPs   = [];
+let allSites    = [];
+let allAPs      = [];
+let allSwitches = [];
+let allWan      = [];
 let chatHistory = [];
 let tshootType = 'wireless';
 
@@ -535,12 +596,15 @@ function startApp() {
 async function loadAll() {
   await loadSites();
   await loadAPs();
+  loadMarvisActions();
+  loadMarvisMinis();
 }
 
 async function refreshAll() {
   document.getElementById('conn-label').textContent = 'REFRESHING';
   await loadAll();
-  loadWlans(); loadSwitches(); loadWan(); loadLog();
+  await Promise.all([loadWlans(), loadSwitches(), loadWan(), loadLog()]);
+  loadMarvisActions(); loadMarvisMinis();
   document.getElementById('conn-label').textContent = 'LIVE';
 }
 
@@ -707,6 +771,7 @@ async function loadSwitches() {
   try {
     const data = await mist('/orgs/' + ORG_ID + '/devices/search?type=switch&limit=200');
     const sw = data.results || [];
+    allSwitches = sw;
     const on = sw.filter(s => s.status === 'connected').length;
     const off = sw.filter(s => s.status === 'disconnected').length;
     document.getElementById('badge-switches').textContent = sw.length;
@@ -746,6 +811,7 @@ async function loadWan() {
   try {
     const data = await mist('/orgs/' + ORG_ID + '/devices/search?type=gateway&limit=200');
     const gw = data.results || [];
+    allWan = gw;
     const on = gw.filter(g => g.status === 'connected').length;
     const off = gw.filter(g => g.status === 'disconnected').length;
     const tunnels = gw.reduce((a, g) => a + (g.num_tunnels || 0), 0);
@@ -947,6 +1013,178 @@ function renderTshootResult(d, mac, query) {
     <div style="margin-top:12px;font-size:10px;color:var(--muted);display:flex;justify-content:space-between">
       <span>Type: ${tshootType}</span><span>${new Date().toLocaleTimeString()}</span>
     </div>`;
+}
+
+// ── Marvis Actions ─────────────────────────────────────────────────────────────
+async function loadMarvisActions() {
+  const body = document.getElementById('marvis-actions-body');
+  const stamp = document.getElementById('marvis-actions-stamp');
+  try {
+    const d = await mist('/orgs/' + ORG_ID + '/marvis/action');
+    const items = Array.isArray(d) ? d : (d.results || []);
+    if (items.length) {
+      stamp.textContent = items.length + ' action' + (items.length !== 1 ? 's' : '');
+      body.innerHTML = items.map(a => {
+        const pri = a.priority === 'high' || a.severity === 'high' ? 'danger'
+                  : a.priority === 'medium' || a.severity === 'medium' ? 'warn' : 'info';
+        const icon = pri === 'danger' ? '⚠' : pri === 'warn' ? '◉' : '◈';
+        const cnt = a.count || a.affected_count || a.device_count || '';
+        return `<div class="marvis-action-item">
+          <div class="marvis-action-icon ${pri}">${icon}</div>
+          <div style="flex:1;min-width:0">
+            <div class="marvis-action-title">${a.title || a.action || a.category || 'Action Required'}</div>
+            <div class="marvis-action-sub">${a.description || a.detail || a.sites?.map(s=>s.name||s.site_name).join(', ') || ''}</div>
+          </div>
+          ${cnt ? `<span class="marvis-action-count ${pri}">${cnt} affected</span>` : ''}
+        </div>`;
+      }).join('');
+      return;
+    }
+  } catch(_) {}
+  // Fallback: derive action items from loaded device data
+  deriveMarvisActions();
+}
+
+function deriveMarvisActions() {
+  const body = document.getElementById('marvis-actions-body');
+  const stamp = document.getElementById('marvis-actions-stamp');
+  const actions = [];
+
+  const offAPs = allAPs.filter(d => d.status === 'disconnected');
+  if (offAPs.length) actions.push({
+    icon:'⚠', cls:'danger', title:`${offAPs.length} AP${offAPs.length>1?'s':''} Offline`,
+    sub: offAPs.slice(0,3).map(d=>d.name||d.hostname||d.mac).join(', ') + (offAPs.length>3?'…':''),
+    count: offAPs.length
+  });
+
+  const offSW = allSwitches.filter(d => d.status === 'disconnected');
+  if (offSW.length) actions.push({
+    icon:'◫', cls:'danger', title:`${offSW.length} Switch${offSW.length>1?'es':''} Offline`,
+    sub: offSW.slice(0,3).map(d=>d.hostname||d.name||d.mac).join(', ') + (offSW.length>3?'…':''),
+    count: offSW.length
+  });
+
+  const offGW = allWan.filter(d => d.status === 'disconnected');
+  if (offGW.length) actions.push({
+    icon:'◭', cls:'danger', title:`${offGW.length} Gateway${offGW.length>1?'s':''} Offline`,
+    sub: offGW.slice(0,2).map(d=>d.hostname||d.name).join(', '),
+    count: offGW.length
+  });
+
+  const warnAPs = allAPs.filter(d => d.status && d.status !== 'connected' && d.status !== 'disconnected');
+  if (warnAPs.length) actions.push({
+    icon:'◉', cls:'warn', title:`${warnAPs.length} AP${warnAPs.length>1?'s':''} Degraded`,
+    sub: warnAPs.map(d=>d.status).filter((v,i,a)=>a.indexOf(v)===i).join(', '),
+    count: warnAPs.length
+  });
+
+  stamp.textContent = actions.length ? actions.length + ' derived' : 'all clear';
+  if (!actions.length) {
+    body.innerHTML = `<div class="marvis-action-item">
+      <div class="marvis-action-icon ok">✓</div>
+      <div><div class="marvis-action-title">No issues detected</div>
+      <div class="marvis-action-sub">All devices connected · Marvis subscription needed for AI recommendations</div></div>
+    </div>`;
+    return;
+  }
+  body.innerHTML = actions.map(a => `<div class="marvis-action-item">
+    <div class="marvis-action-icon ${a.cls}">${a.icon}</div>
+    <div style="flex:1;min-width:0">
+      <div class="marvis-action-title">${a.title}</div>
+      <div class="marvis-action-sub">${a.sub}</div>
+    </div>
+    <span class="marvis-action-count ${a.cls}">${a.count}</span>
+  </div>`).join('');
+}
+
+// ── Marvis Minis (SLE connectivity) ───────────────────────────────────────────
+const SLE_METRICS = [
+  { key:'time-to-connect', label:'Time to Connect',  icon:'⟳' },
+  { key:'roaming',         label:'Roaming Success',  icon:'⇌' },
+  { key:'coverage',        label:'Coverage',         icon:'◎' },
+  { key:'throughput',      label:'Throughput',        icon:'↑' },
+  { key:'ap-availability', label:'AP Availability',  icon:'◉' },
+  { key:'capacity',        label:'Capacity',          icon:'≡' },
+];
+
+async function loadMarvisMinis() {
+  const body = document.getElementById('marvis-minis-body');
+  const stamp = document.getElementById('marvis-minis-stamp');
+  const end   = Math.floor(Date.now() / 1000);
+  const start = end - 7 * 86400;
+
+  if (!allSites.length) { body.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">// Waiting for site data...</span>'; return; }
+
+  // Try SLE for first site
+  const siteId = allSites[0].id;
+  const scores = [];
+  for (const m of SLE_METRICS) {
+    try {
+      const d = await mist(`/sites/${siteId}/sle/wireless/metric/${m.key}/summary?start=${start}&end=${end}`);
+      const score = d.score ?? d.sle_score ?? d.value ?? null;
+      if (score !== null && score !== undefined) scores.push({ ...m, score: Math.round(score * 100) / 100 });
+    } catch(_) {}
+  }
+
+  if (scores.length) {
+    stamp.textContent = '7d · ' + allSites[0].name;
+    body.innerHTML = '<div class="mini-grid">' + scores.map(s => {
+      const pct = Math.min(100, Math.round(s.score));
+      const cls = pct >= 80 ? 'ok' : pct >= 60 ? 'warn' : 'danger';
+      const color = pct >= 80 ? 'var(--ok)' : pct >= 60 ? 'var(--warn)' : 'var(--danger)';
+      return `<div class="mini-card">
+        <div class="mini-label">${s.icon} ${s.label}</div>
+        <div class="mini-score ${cls}">${pct}%</div>
+        <div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>`;
+    }).join('') + '</div>';
+    return;
+  }
+
+  // Fallback: derive connectivity metrics from device data
+  deriveMarvisMinis(start, end);
+}
+
+function deriveMarvisMinis(start, end) {
+  const body = document.getElementById('marvis-minis-body');
+  const stamp = document.getElementById('marvis-minis-stamp');
+
+  const totalAP = allAPs.length;
+  const onAP    = allAPs.filter(d => d.status === 'connected').length;
+  const clients = allAPs.reduce((a, d) => a + (d.num_clients || 0), 0);
+  const totalSW = allSwitches.length;
+  const onSW    = allSwitches.filter(d => d.status === 'connected').length;
+  const totalGW = allWan.length;
+  const onGW    = allWan.filter(d => d.status === 'connected').length;
+
+  const apPct  = totalAP ? Math.round((onAP  / totalAP) * 100) : null;
+  const swPct  = totalSW ? Math.round((onSW  / totalSW) * 100) : null;
+  const gwPct  = totalGW ? Math.round((onGW  / totalGW) * 100) : null;
+
+  const tiles = [
+    { label:'AP Availability',   icon:'◉', val: apPct,    unit:'%', fallback: totalAP === 0 },
+    { label:'Active Clients',    icon:'◎', val: clients,  unit:'',  fallback: false },
+    { label:'Switch Uptime',     icon:'◫', val: swPct,    unit:'%', fallback: totalSW === 0 },
+    { label:'Gateway Uptime',    icon:'◭', val: gwPct,    unit:'%', fallback: totalGW === 0 },
+  ].filter(t => !t.fallback && t.val !== null);
+
+  stamp.textContent = 'live · SLE requires subscription';
+  if (!tiles.length) {
+    body.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">// No device data yet — try refreshing</span>';
+    return;
+  }
+  body.innerHTML = '<div class="mini-grid">' + tiles.map(t => {
+    const isPercent = t.unit === '%';
+    const pct   = isPercent ? t.val : Math.min(100, t.val * 4);
+    const cls   = isPercent ? (t.val >= 80 ? 'ok' : t.val >= 60 ? 'warn' : 'danger') : 'info';
+    const color = cls === 'ok' ? 'var(--ok)' : cls === 'warn' ? 'var(--warn)' : cls === 'danger' ? 'var(--danger)' : 'var(--accent2)';
+    return `<div class="mini-card">
+      <div class="mini-label">${t.icon} ${t.label}</div>
+      <div class="mini-score ${cls}">${t.val}${t.unit}</div>
+      <div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  }).join('') + '</div>' +
+  '<div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted)">// SLE metrics require Marvis subscription · showing live device status</div>';
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
