@@ -47,9 +47,15 @@ _automation_counter = [1]
 # MIST API HELPERS
 # ============================================================================
 
-def mist_request(method, path, **kwargs):
+def get_token():
+    """Prefer X-Mist-Token from the current request, fall back to env var."""
+    return request.headers.get('X-Mist-Token') or MIST_API_TOKEN
+
+
+def mist_request(method, path, token=None, **kwargs):
+    tok = token or get_token()
     headers = {
-        'Authorization': f'Token {MIST_API_TOKEN}',
+        'Authorization': f'Token {tok}',
         'Content-Type': 'application/json',
     }
     headers.update(kwargs.pop('headers', {}))
@@ -467,6 +473,63 @@ def execute_automation(automation_id):
 @app.route('/api/v1/self', methods=['GET'])
 def self_info():
     return mist_json(mist_request('GET', '/self'))
+
+
+# Token validation — called by login screen
+@app.route('/api/validate', methods=['GET'])
+def validate_token():
+    tok = request.headers.get('X-Mist-Token', '').strip()
+    if not tok:
+        return jsonify({'error': 'No token provided'}), 400
+    try:
+        r = mist_request('GET', '/self', token=tok)
+        if r.status_code == 200:
+            data = r.json()
+            return jsonify({'email': data.get('email', ''), 'name': data.get('name', ''), 'privileges': data.get('privileges', [])})
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Org-level proxy routes (token-forwarding)
+@app.route('/api/v1/orgs/<org_id>/sites', methods=['GET'])
+def org_sites(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/sites'))
+
+
+@app.route('/api/v1/orgs/<org_id>/stats', methods=['GET'])
+def org_stats(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/stats'))
+
+
+@app.route('/api/v1/orgs/<org_id>/wlans', methods=['GET'])
+def org_wlans(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/wlans'))
+
+
+@app.route('/api/v1/orgs/<org_id>/devices/search', methods=['GET'])
+def org_devices_search(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/devices/search', params=request.args))
+
+
+@app.route('/api/v1/orgs/<org_id>/clients/search', methods=['GET'])
+def org_clients_search(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/clients/search', params=request.args))
+
+
+@app.route('/api/v1/orgs/<org_id>/troubleshoot', methods=['GET'])
+def org_troubleshoot(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/troubleshoot', params=request.args))
+
+
+@app.route('/api/v1/orgs/<org_id>/marvis', methods=['POST'])
+def org_marvis(org_id):
+    return mist_json(mist_request('POST', f'/orgs/{org_id}/marvis', json=request.get_json()))
+
+
+@app.route('/api/v1/orgs/<org_id>/logs', methods=['GET'])
+def org_logs(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/logs', params=request.args))
 
 
 if __name__ == '__main__':
