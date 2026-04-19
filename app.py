@@ -38,7 +38,7 @@ MIST_ORG_ID = os.environ.get('MIST_ORG_ID', '')
 CLAUDE_MODEL = os.environ.get('CLAUDE_MODEL', 'claude-sonnet-4-6')
 WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
 
-N8N_URL = os.environ.get('N8N_URL', 'http://192.168.0.75:30109')
+N8N_URL = os.environ.get('N8N_URL', 'https://workflows.thewifijedi.com')
 
 REQUEST_COUNT = Counter('mist_requests_total', 'Total requests', ['method', 'endpoint', 'status'])
 REQUEST_LATENCY = Histogram('mist_request_latency_seconds', 'Request latency')

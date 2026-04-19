@@ -468,15 +468,22 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
             </div>
           </div>
           <div class="card">
-            <div class="card-header"><span class="card-title">Mist Webhook Config</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">CONFIGURE IN MIST PORTAL</span></div>
+            <div class="card-header">
+              <span class="card-title">Mist Webhook Config</span>
+              <a href="https://workflows.thewifijedi.com/workflow/w9244MhHcbp1xbNB" target="_blank" rel="noopener" class="portal-link">Open Workflow ↗</a>
+            </div>
             <div class="card-body" style="padding:14px 18px">
               <div style="margin-bottom:10px">
-                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Webhook URL (point Mist Cloud here)</div>
-                <div id="n8n-webhook-url" style="font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl()" title="Click to copy">—</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Production — point Mist Cloud here <span style="color:var(--ok)">● LIVE</span></div>
+                <div id="n8n-webhook-url" style="font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl('n8n-webhook-url')" title="Click to copy"></div>
+              </div>
+              <div style="margin-bottom:10px">
+                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Test — for workflow testing only <span style="color:var(--warn)">● TEST</span></div>
+                <div id="n8n-test-url" style="font-family:var(--mono);font-size:11px;color:var(--warn);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl('n8n-test-url')" title="Click to copy"></div>
               </div>
               <div>
-                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">n8n direct (backup)</div>
-                <div id="n8n-direct-url" style="font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;word-break:break-all">—</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Tatooine relay (buffers events locally)</div>
+                <div id="n8n-relay-url" style="font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;word-break:break-all;cursor:pointer" onclick="copyWebhookUrl('n8n-relay-url')" title="Click to copy"></div>
               </div>
             </div>
           </div>
@@ -1143,13 +1150,16 @@ function renderTshootResult(d, mac, query) {
 }
 
 // ── n8n AI Ops ─────────────────────────────────────────────────────────────────
-const N8N_BASE = 'http://192.168.0.75:30109';
-const WEBHOOK_HOST = window.location.origin;
+const N8N_BASE        = 'https://workflows.thewifijedi.com';
+const N8N_PROD_HOOK   = N8N_BASE + '/webhook/mist-events';
+const N8N_TEST_HOOK   = N8N_BASE + '/webhook-test/mist-events';
+const WEBHOOK_HOST    = window.location.origin;
 
 async function loadN8n() {
   document.getElementById('n8n-url-label').textContent = N8N_BASE;
-  document.getElementById('n8n-webhook-url').textContent = WEBHOOK_HOST + '/webhook/mist';
-  document.getElementById('n8n-direct-url').textContent = N8N_BASE + '/webhook/mist-events';
+  document.getElementById('n8n-webhook-url').textContent = N8N_PROD_HOOK;
+  document.getElementById('n8n-test-url').textContent   = N8N_TEST_HOOK;
+  document.getElementById('n8n-relay-url').textContent  = WEBHOOK_HOST + '/webhook/mist';
   await Promise.all([checkN8nStatus(), loadN8nAnalyses(), loadN8nEvents()]);
 }
 
@@ -1279,10 +1289,9 @@ function n8nRestartDevice() {
   n8nAction('restart_device', { site_id: siteId, device_id: mac });
 }
 
-function copyWebhookUrl() {
-  const url = document.getElementById('n8n-webhook-url').textContent;
-  navigator.clipboard.writeText(url).then(() => {
-    const el = document.getElementById('n8n-webhook-url');
+function copyWebhookUrl(elId) {
+  const el = document.getElementById(elId);
+  navigator.clipboard.writeText(el.textContent).then(() => {
     const orig = el.style.color;
     el.style.color = 'var(--ok)';
     setTimeout(() => { el.style.color = orig; }, 1200);
