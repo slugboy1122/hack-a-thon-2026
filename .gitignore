@@ -1,4 +1,5 @@
 .env
+tatooine_api_keys.txt
 __pycache__/
 *.pyc
 *.pyo

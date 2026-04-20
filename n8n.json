@@ -3,38 +3,27 @@
   "nodes": [
     {
       "parameters": {
-        "multipleMethods": true,
-        "httpMethod": [
-          "GET",
-          "DELETE",
-          "POST",
-          "PUT"
-        ],
+        "httpMethod": "POST",
         "path": "mist-events",
+        "responseMode": "onReceived",
         "options": {}
       },
-      "id": "007bf57d-8b80-43f1-8f38-51da8e749398",
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567801",
       "name": "Mist Webhook Receiver",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [
-        -656,
-        0
-      ],
-      "webhookId": "mist-events-001"
+      "position": [-960, 200],
+      "webhookId": "mist-events"
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || $input.first().json || {};\nconst events = body.events || [];\nconst topic = body.topic || 'unknown';\n\nconst HIGH_P = [\n  'device_down','switch_offline','gw_offline',\n  'marvis_ap_offline','bad_cable','auth_failure_rate',\n  'rogue_ap','honeypot_ssid','vssid_spoofing'\n];\n\nif (events.length === 0) {\n  return [{ json: { topic, event_type: 'ping', high_priority: false, site_name: 'n/a', device_name: 'n/a', device_mac: 'n/a', severity: 'info', count: 0, message: '', timestamp: Math.floor(Date.now()/1000), raw: {} } }];\n}\n\nreturn events.map(e => ({\n  json: {\n    topic,\n    event_type: e.type || e.alarm_type || 'unknown',\n    severity: e.severity || 'info',\n    site_id: e.site_id || '',\n    site_name: e.site_name || 'unknown',\n    org_id: e.org_id || '',\n    device_mac: e.ap || e.mac || e.switch_mac || '',\n    device_name: e.ap_name || e.device_name || '',\n    message: e.message || e.reason || '',\n    count: e.count || 1,\n    timestamp: e.timestamp || Math.floor(Date.now()/1000),\n    high_priority: HIGH_P.includes(e.type || e.alarm_type || ''),\n    raw: e\n  }\n}));"
+        "jsCode": "const body = $input.first().json.body || $input.first().json || {};\nconst topic = body.topic || 'unknown';\nconst HIGH_P = [\n  'device_down','switch_offline','gw_offline','ap_offline','gateway_offline',\n  'marvis_ap_offline','bad_cable','auth_failure_rate',\n  'rogue_ap','honeypot_ssid','vssid_spoofing'\n];\n\nif (topic === 'audits') {\n  const items = body.results || body.events || [body];\n  return items.filter(Boolean).map(e => ({\n    json: {\n      topic,\n      event_type: 'audit',\n      severity: 'info',\n      site_id: e.site_id || '',\n      site_name: e.site_name || '',\n      org_id: e.org_id || '',\n      device_mac: '',\n      device_name: '',\n      message: `${e.admin_name || 'Admin'}: ${e.message || ''}`.trim(),\n      count: 1,\n      timestamp: e.timestamp || Math.floor(Date.now() / 1000),\n      high_priority: false,\n      raw: e\n    }\n  }));\n}\n\nconst events = body.events || body.items || [];\nif (events.length === 0) {\n  return [{ json: {\n    topic,\n    event_type: 'ping',\n    severity: 'info',\n    site_id: '', site_name: 'n/a', org_id: '',\n    device_mac: '', device_name: '',\n    message: 'keepalive',\n    count: 0,\n    timestamp: Math.floor(Date.now() / 1000),\n    high_priority: false,\n    raw: body\n  }}];\n}\n\nreturn events.map(e => ({\n  json: {\n    topic,\n    event_type: e.type || e.alarm_type || 'unknown',\n    severity: e.severity || 'info',\n    site_id: e.site_id || '',\n    site_name: e.site_name || 'unknown',\n    org_id: e.org_id || '',\n    device_mac: e.ap || e.mac || e.switch_mac || e.gateway_mac || '',\n    device_name: e.ap_name || e.switch_name || e.gateway_name || e.device_name || '',\n    message: e.message || e.reason || e.text || '',\n    count: e.count || 1,\n    timestamp: e.timestamp || Math.floor(Date.now() / 1000),\n    high_priority: HIGH_P.includes(e.type || e.alarm_type || ''),\n    raw: e\n  }\n}));"
       },
-      "id": "5bf50c54-9d51-4864-9019-933aed46cefd",
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567802",
       "name": "Normalize Event",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -656,
-        384
-      ]
+      "position": [-720, 200]
     },
     {
       "parameters": {
@@ -60,27 +49,21 @@
         },
         "options": {}
       },
-      "id": "5b7396a9-fa09-4e2b-97ae-9105573717f4",
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567803",
       "name": "High Priority?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        -432,
-        384
-      ]
+      "position": [-480, 200]
     },
     {
       "parameters": {
-        "jsCode": "const e = $input.first().json;\n\nconst system = `You are Marvis AI Ops Assistant for Juniper Mist networks. You have deep expertise in:\n- Mist API (api.mist.com), MARVIS ML engine, all webhook topics\n- tmunzer/mist_library Python automation scripts (mistapi package)\n- AP troubleshooting: radio, RRM, 802.11r/k/v, RSSI thresholds\n- Switch/EX Series: PoE, port profiles, EVPN-VXLAN\n- SRX/SSR WAN: SD-WAN path selection, app-based steering\n- NAC: Mist Access Assurance, ClearPass integration\n- HPE Aruba Central and GreenLake networking\n\nFor each event: diagnose root cause using Marvis reasoning, recommend specific Mist API calls or tmunzer script commands to remediate, assign P1/P2/P3 priority.`;\n\nconst user = `MIST EVENT — Analysis Required\n\nTopic: ${e.topic}\nEvent: ${e.event_type}\nSeverity: ${e.severity}\nSite: ${e.site_name} (${e.site_id})\nDevice: ${e.device_name} [${e.device_mac}]\nCount: ${e.count}\nTime: ${new Date(e.timestamp * 1000).toISOString()}\n${e.message ? 'Message: ' + e.message : ''}\n\nRaw Payload:\n${JSON.stringify(e.raw, null, 2)}\n\nProvide:\n1. Root cause diagnosis\n2. Remediation steps (include Mist API calls or tmunzer script)\n3. Preventive recommendations\n4. Priority: P1/P2/P3`;\n\nreturn [{ json: { system, user, event_context: e } }];"
+        "jsCode": "const e = $input.first().json;\n\nconst system = `You are Marvis AI Ops, an expert network operations assistant for Juniper Mist infrastructure. Your knowledge spans:\n- Mist AI/ML: Marvis Virtual Network Assistant, Dynamic Packet Capture, SLE metrics, Marvis Actions\n- Wireless: 802.11ax/WiFi 6/6E, RRM, 802.11r/k/v roaming, band steering, PSK/802.1X\n- Switching: EX Series, PoE budgets, port profiles, RSTP/MSTP, EVPN-VXLAN, LAG/LACP\n- WAN/SD-WAN: SRX, SSR, application-based steering, path quality monitoring\n- NAC: Mist Access Assurance, 802.1X, RADIUS, MAC Auth Bypass, ClearPass integration\n- Mist API: api.mist.com REST endpoints, webhook topics, tmunzer/mist_library (mistapi package)\n- HPE Aruba: Central, AOS-CX, GreenLake\n\nBe concise and actionable. Provide specific Mist API endpoints or CLI commands where helpful.`;\n\nconst user = `MIST EVENT ALERT — ${e.topic.toUpperCase()} / ${e.event_type.toUpperCase()}\n\nSite:     ${e.site_name} (${e.site_id})\nSeverity: ${e.severity} | Count: ${e.count}\nDevice:   ${e.device_name} [${e.device_mac}]\nTime:     ${new Date(e.timestamp * 1000).toISOString()}\n${e.message ? 'Details:  ' + e.message : ''}\n\nFull Payload:\n${JSON.stringify(e.raw, null, 2)}\n\nProvide:\n1. **Root Cause** — most likely explanation\n2. **Immediate Action** — specific Mist portal step or API call (include endpoint)\n3. **Verification** — how to confirm resolution\n4. **Prevention** — long-term recommendation\n5. **Priority**: P1 (critical/service down) | P2 (degraded) | P3 (informational)`;\n\nreturn [{ json: { system, user, event_context: e } }];"
       },
-      "id": "7a1e1a2b-199e-4acd-8a6f-49ee020de9d0",
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567804",
       "name": "Build Analysis Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -208,
-        288
-      ]
+      "position": [-240, 80]
     },
     {
       "parameters": {
@@ -89,354 +72,41 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "x-api-key",
-              "value": "={{ $env.ANTHROPIC_API_KEY }}"
-            },
-            {
-              "name": "anthropic-version",
-              "value": "2023-06-01"
-            },
-            {
-              "name": "content-type",
-              "value": "application/json"
-            }
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 2048,\n  \"system\": {{ JSON.stringify($json.system) }},\n  \"messages\": [{ \"role\": \"user\", \"content\": {{ JSON.stringify($json.user) }} }]\n}",
-        "options": {
-          "timeout": 60000
-        }
+        "options": { "timeout": 60000 }
       },
-      "id": "a82f7dfe-8b47-4731-a541-d54ba51c87d7",
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567805",
       "name": "Claude Analyze Event",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        16,
-        288
-      ]
+      "position": [0, 80],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const r = $input.first().json;\nconst text = r.content?.[0]?.text || 'No response from Claude';\nconst priority = (text.match(/Priority:\\s*(P[123])/i) || [])[1] || 'P2';\nconsole.log('Claude Analysis:', text.substring(0, 200));\nreturn [{ json: { analysis: text, priority, timestamp: new Date().toISOString() } }];"
+        "jsCode": "const r = $input.first().json;\nconst text = r.content?.[0]?.text || r.error?.message || 'Claude analysis unavailable';\nconst pm = text.match(/\\*?\\*?Priority\\*?\\*?[:\\s]+(P[123])/i) || text.match(/\\b(P[123])\\b/);\nconst priority = pm ? pm[1] : 'P2';\nreturn [{ json: { analysis: text, priority, timestamp: new Date().toISOString() } }];"
       },
-      "id": "b0fe4cb3-97a6-4703-9036-102aa8bc793b",
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567806",
       "name": "Parse Analysis",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        240,
-        288
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const e = $input.first().json;\nconsole.log('LOW PRIORITY EVENT:', JSON.stringify({\n  ts: new Date().toISOString(),\n  type: e.event_type,\n  site: e.site_name,\n  device: e.device_name\n}));\nreturn [{ json: { logged: true, event_type: e.event_type, ts: new Date().toISOString() } }];"
-      },
-      "id": "111598e0-b804-4875-a288-723ae70122c1",
-      "name": "Log Low Priority",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -208,
-        480
-      ]
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mist-chat",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "2f68b756-1eac-4617-86fe-89644a5355af",
-      "name": "Chat Trigger",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [
-        -656,
-        704
-      ],
-      "webhookId": "mist-chat-001"
-    },
-    {
-      "parameters": {
-        "jsCode": "const b = $input.first().json.body || $input.first().json || {};\n\nconst system = `You are Marvis AI Ops for Juniper Mist. You help network operators query and manage Mist environments.\n\nAvailable actions you can trigger:\n- get_sites: list all org sites\n- get_devices: list devices at a site (needs site_id)\n- get_clients: client stats at a site (needs site_id)\n- get_alarms: active org alarms\n- update_wlan: modify WLAN config (needs wlan_id + config)\n- restart_device: reboot a device (needs device_id)\n\nAlways respond with valid JSON only, no markdown:\n{\"intent\": \"description\", \"action\": \"action_name or null\", \"params\": {}, \"response\": \"reply to operator\", \"needs_confirmation\": false}`;\n\nconst user = `Org ID: ${b.org_id || 'not provided'}\nSite ID: ${b.site_id || 'not provided'}\nQuery: ${b.query || b.message || ''}`;\n\nreturn [{ json: { system, user, org_id: b.org_id || '', site_id: b.site_id || '' } }];"
-      },
-      "id": "357e62ce-2378-4c1c-8748-ba7f92357703",
-      "name": "Build Chat Intent",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -432,
-        704
-      ]
+      "position": [240, 80]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.anthropic.com/v1/messages",
+        "url": "http://mist-api:8000/webhook/n8n/analysis",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "x-api-key",
-              "value": "={{ $env.ANTHROPIC_API_KEY }}"
-            },
-            {
-              "name": "anthropic-version",
-              "value": "2023-06-01"
-            },
-            {
-              "name": "content-type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 512,\n  \"system\": {{ JSON.stringify($json.system) }},\n  \"messages\": [{ \"role\": \"user\", \"content\": {{ JSON.stringify($json.user) }} }]\n}",
-        "options": {
-          "timeout": 30000
-        }
-      },
-      "id": "6893feb3-99e0-41df-bd17-f1c89206e1e6",
-      "name": "Claude Resolve Intent",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -208,
-        704
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const r = $input.first().json;\nconst raw = r.content?.[0]?.text || '{}';\nlet intent = {};\ntry {\n  intent = JSON.parse(raw.replace(/```json|```/g, '').trim());\n} catch(e) {\n  intent = { action: null, response: raw, needs_confirmation: false };\n}\nreturn [{ json: intent }];"
-      },
-      "id": "18d2c4f8-ec26-4843-9041-9d440179b3d3",
-      "name": "Parse Chat Intent",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        16,
-        704
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
-        "options": {}
-      },
-      "id": "fe00a1c7-534f-4eb6-88f4-51c0dddcafa7",
-      "name": "Chat Response",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        240,
-        704
-      ]
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "mist-api",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "6f5ec411-5869-4d98-b53d-abe36393ff14",
-      "name": "Mist API Proxy",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [
-        -656,
-        1216
-      ],
-      "webhookId": "mist-api-001"
-    },
-    {
-      "parameters": {
-        "dataType": "string",
-        "value1": "={{ $json.body.action || $json.action }}",
-        "rules": {
-          "rules": [
-            {
-              "value2": "get_sites"
-            },
-            {
-              "value2": "get_devices",
-              "output": 1
-            },
-            {
-              "value2": "get_clients",
-              "output": 2
-            },
-            {
-              "value2": "get_alarms",
-              "output": 3
-            },
-            {
-              "value2": "restart_device",
-              "output": 4
-            }
-          ]
-        },
-        "fallbackOutput": 5
-      },
-      "id": "82d65a99-b9d8-4277-8c08-ba12545ac25a",
-      "name": "API Action Router",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 1,
-      "position": [
-        -432,
-        1184
-      ]
-    },
-    {
-      "parameters": {
-        "url": "=https://api.mist.com/api/v1/orgs/{{ $json.body.org_id || $env.MIST_DEFAULT_ORG_ID }}/sites",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Token {{ $env.MIST_API_TOKEN }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "12626333-d2a1-4504-910e-24c661d5babf",
-      "name": "Mist GET Sites",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -208,
-        928
-      ]
-    },
-    {
-      "parameters": {
-        "url": "=https://api.mist.com/api/v1/sites/{{ $json.body.site_id }}/devices?type=all",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Token {{ $env.MIST_API_TOKEN }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "828ebbe8-ab59-47f5-887c-eaba7b03d595",
-      "name": "Mist GET Devices",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -208,
-        1120
-      ]
-    },
-    {
-      "parameters": {
-        "url": "=https://api.mist.com/api/v1/sites/{{ $json.body.site_id }}/stats/clients",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Token {{ $env.MIST_API_TOKEN }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "060bd7dd-5d6c-4c1a-93a0-37e6422d6877",
-      "name": "Mist GET Clients",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -208,
-        1312
-      ]
-    },
-    {
-      "parameters": {
-        "url": "=https://api.mist.com/api/v1/orgs/{{ $json.body.org_id || $env.MIST_DEFAULT_ORG_ID }}/alarms/search?limit=100",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Token {{ $env.MIST_API_TOKEN }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "d6d23eef-cbad-471b-8909-ce01ccc95299",
-      "name": "Mist GET Alarms",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -208,
-        1504
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://api.mist.com/api/v1/sites/{{ $json.body.site_id }}/devices/{{ $json.body.device_id }}/reboot",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Token {{ $env.MIST_API_TOKEN }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "13789a2c-4dc9-4491-8f05-b326212300ec",
-      "name": "Mist RESTART Device",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -208,
-        1696
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'ok', data: $json }) }}",
-        "options": {}
-      },
-      "id": "a26097ee-f8da-4523-91bc-690aebd1055b",
-      "name": "API Response",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        16,
-        1312
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://192.168.0.55/webhook/n8n/analysis",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
+            { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
@@ -447,235 +117,429 @@
           "response": { "response": { "neverError": true } }
         }
       },
-      "id": "f3a2b1c0-9e8d-4f7a-b6e5-d4c3b2a10001",
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567807",
       "name": "Push to Tatooine",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        464,
-        288
-      ]
+      "position": [480, 80],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconsole.log('LOW_PRIORITY', JSON.stringify({ ts: new Date().toISOString(), type: e.event_type, topic: e.topic, site: e.site_name, device: e.device_name }));\nreturn [{ json: {\n  analysis: `Low priority event: **${e.event_type}** on topic \\`${e.topic}\\`\\n\\n**Site:** ${e.site_name}\\n**Device:** ${e.device_name || 'n/a'} [${e.device_mac || 'n/a'}]\\n**Message:** ${e.message || 'n/a'}`,\n  priority: 'P3',\n  timestamp: new Date().toISOString(),\n  event_context: e\n} }];"
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567808",
+      "name": "Log Low Priority",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mist-api:8000/webhook/n8n/analysis",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 5000,
+          "response": { "response": { "neverError": true } }
+        }
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567809",
+      "name": "Push Low to Tatooine",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 320],
+      "continueOnFail": true
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mist-chat",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567810",
+      "name": "Chat Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [-960, 900],
+      "webhookId": "mist-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body || $input.first().json || {};\nconst orgId = b.org_id || process.env.MIST_DEFAULT_ORG_ID || '';\n\nconst system = `You are Marvis AI Ops for Juniper Mist networks. Help operators query and manage their Mist environment.\n\nAvailable actions (use when the query requires live network data):\n- get_sites: list all org sites\n- get_devices: list devices at a site (needs site_id)\n- get_clients: list active wireless clients at a site (needs site_id)\n- get_alarms: get active org alarms\n\nRespond ONLY with valid JSON, no markdown code fences:\n{\"intent\": \"brief description\", \"action\": \"action_name or null\", \"params\": {\"site_id\": \"if needed\"}, \"response\": \"your reply to the operator\", \"needs_confirmation\": false}`;\n\nconst history = (b.history || []).map(h => ({ role: h.role, content: h.content }));\nconst messages = [\n  ...history,\n  { role: 'user', content: `Org: ${orgId}\\nSite: ${b.site_id || 'not specified'}\\nQuery: ${b.query || b.message || ''}` }\n];\n\nreturn [{ json: { system, messages, org_id: orgId, site_id: b.site_id || '' } }];"
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567811",
+      "name": "Build Chat Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-720, 900]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($json.system) }},\n  \"messages\": {{ JSON.stringify($json.messages) }}\n}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567812",
+      "name": "Claude Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-480, 900],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst raw = r.content?.[0]?.text || r.error?.message || '{\"response\": \"Claude unavailable\", \"action\": null}';\nlet intent = {};\ntry {\n  intent = JSON.parse(raw.replace(/```json\\n?|```/g, '').trim());\n} catch(e) {\n  intent = { action: null, response: raw, needs_confirmation: false, params: {} };\n}\n\nconst orgId = $('Build Chat Prompt').first().json.org_id;\nconst siteId = intent.params?.site_id || $('Build Chat Prompt').first().json.site_id || '';\n\nconst apiUrls = {\n  get_sites:   `https://api.mist.com/api/v1/orgs/${orgId}/sites`,\n  get_devices: `https://api.mist.com/api/v1/sites/${siteId}/devices?type=all`,\n  get_clients: `https://api.mist.com/api/v1/sites/${siteId}/stats/clients`,\n  get_alarms:  `https://api.mist.com/api/v1/orgs/${orgId}/alarms/search?limit=50`\n};\n\nconst api_url = intent.action ? (apiUrls[intent.action] || null) : null;\nreturn [{ json: { ...intent, api_url, org_id: orgId, site_id: siteId } }];"
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567813",
+      "name": "Parse Chat Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 900]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.api_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567814",
+      "name": "Has API Action?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [0, 900]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.api_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Token {{ $env.MIST_API_TOKEN }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "neverError": true } }
+        }
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567815",
+      "name": "Execute Chat API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 780],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const intent = $('Parse Chat Intent').first().json;\nconst apiData = $input.first().json;\nreturn [{ json: {\n  response: intent.response,\n  action: intent.action,\n  params: intent.params,\n  data: apiData,\n  needs_confirmation: intent.needs_confirmation || false\n} }];"
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567816",
+      "name": "Build Chat Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 780]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567817",
+      "name": "Chat Respond With Data",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 780]
+    },
+    {
+      "parameters": {
+        "jsCode": "const intent = $('Parse Chat Intent').first().json;\nreturn [{ json: {\n  response: intent.response,\n  action: null,\n  params: {},\n  data: null,\n  needs_confirmation: intent.needs_confirmation || false\n} }];"
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567818",
+      "name": "Build Chat Response No Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 1020]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567819",
+      "name": "Chat Respond No Data",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [480, 1020]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mist-api",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567820",
+      "name": "Mist API Proxy",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [-960, 1600],
+      "webhookId": "mist-api"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body.action || $json.action }}",
+        "rules": {
+          "rules": [
+            { "value2": "get_sites" },
+            { "value2": "get_devices", "output": 1 },
+            { "value2": "get_clients", "output": 2 },
+            { "value2": "get_alarms",  "output": 3 },
+            { "value2": "restart_device", "output": 4 }
+          ]
+        },
+        "fallbackOutput": 5
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567821",
+      "name": "API Action Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [-720, 1600]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.mist.com/api/v1/orgs/{{ $json.body.org_id || $env.MIST_DEFAULT_ORG_ID }}/sites",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Token {{ $env.MIST_API_TOKEN }}" }
+          ]
+        },
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567822",
+      "name": "Mist GET Sites",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-480, 1360]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.mist.com/api/v1/sites/{{ $json.body.site_id }}/devices?type=all",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Token {{ $env.MIST_API_TOKEN }}" }
+          ]
+        },
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567823",
+      "name": "Mist GET Devices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-480, 1520]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.mist.com/api/v1/sites/{{ $json.body.site_id }}/stats/clients",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Token {{ $env.MIST_API_TOKEN }}" }
+          ]
+        },
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567824",
+      "name": "Mist GET Clients",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-480, 1680]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.mist.com/api/v1/orgs/{{ $json.body.org_id || $env.MIST_DEFAULT_ORG_ID }}/alarms/search?limit=100",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Token {{ $env.MIST_API_TOKEN }}" }
+          ]
+        },
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567825",
+      "name": "Mist GET Alarms",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-480, 1840]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.mist.com/api/v1/sites/{{ $json.body.site_id }}/devices/{{ $json.body.device_id }}/reboot",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Token {{ $env.MIST_API_TOKEN }}" }
+          ]
+        },
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567826",
+      "name": "Mist RESTART Device",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-480, 2000]
+    },
+    {
+      "parameters": {
+        "jsCode": "const action = $input.first().json.body?.action || $input.first().json?.action || 'unknown';\nreturn [{ json: { error: 'Unknown action', action, available: ['get_sites','get_devices','get_clients','get_alarms','restart_device'] } }];"
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567827",
+      "name": "API Unknown Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, 2160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', data: $json }) }}",
+        "options": {}
+      },
+      "id": "c1a2b3d4-e5f6-4890-ab01-001234567828",
+      "name": "API Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [-240, 1760]
     }
   ],
   "pinData": {},
   "connections": {
     "Mist Webhook Receiver": {
-      "main": [
-        []
-      ]
+      "main": [[{ "node": "Normalize Event", "type": "main", "index": 0 }]]
     },
     "Normalize Event": {
-      "main": [
-        [
-          {
-            "node": "High Priority?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "High Priority?", "type": "main", "index": 0 }]]
     },
     "High Priority?": {
       "main": [
-        [
-          {
-            "node": "Build Analysis Prompt",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Log Low Priority",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Build Analysis Prompt", "type": "main", "index": 0 }],
+        [{ "node": "Log Low Priority", "type": "main", "index": 0 }]
       ]
     },
     "Build Analysis Prompt": {
-      "main": [
-        [
-          {
-            "node": "Claude Analyze Event",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Claude Analyze Event", "type": "main", "index": 0 }]]
     },
     "Claude Analyze Event": {
-      "main": [
-        [
-          {
-            "node": "Parse Analysis",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Parse Analysis", "type": "main", "index": 0 }]]
     },
     "Parse Analysis": {
-      "main": [
-        [
-          {
-            "node": "Push to Tatooine",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Push to Tatooine", "type": "main", "index": 0 }]]
     },
+    "Log Low Priority": {
+      "main": [[{ "node": "Push Low to Tatooine", "type": "main", "index": 0 }]]
+    },
+
     "Chat Trigger": {
-      "main": [
-        [
-          {
-            "node": "Build Chat Intent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Build Chat Prompt", "type": "main", "index": 0 }]]
     },
-    "Build Chat Intent": {
-      "main": [
-        [
-          {
-            "node": "Claude Resolve Intent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Build Chat Prompt": {
+      "main": [[{ "node": "Claude Chat", "type": "main", "index": 0 }]]
     },
-    "Claude Resolve Intent": {
-      "main": [
-        [
-          {
-            "node": "Parse Chat Intent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Claude Chat": {
+      "main": [[{ "node": "Parse Chat Intent", "type": "main", "index": 0 }]]
     },
     "Parse Chat Intent": {
+      "main": [[{ "node": "Has API Action?", "type": "main", "index": 0 }]]
+    },
+    "Has API Action?": {
       "main": [
-        [
-          {
-            "node": "Chat Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Execute Chat API Call", "type": "main", "index": 0 }],
+        [{ "node": "Build Chat Response No Data", "type": "main", "index": 0 }]
       ]
     },
+    "Execute Chat API Call": {
+      "main": [[{ "node": "Build Chat Response", "type": "main", "index": 0 }]]
+    },
+    "Build Chat Response": {
+      "main": [[{ "node": "Chat Respond With Data", "type": "main", "index": 0 }]]
+    },
+    "Build Chat Response No Data": {
+      "main": [[{ "node": "Chat Respond No Data", "type": "main", "index": 0 }]]
+    },
+
     "Mist API Proxy": {
-      "main": [
-        [
-          {
-            "node": "API Action Router",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "API Action Router", "type": "main", "index": 0 }]]
     },
     "API Action Router": {
       "main": [
-        [
-          {
-            "node": "Mist GET Sites",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Mist GET Devices",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Mist GET Clients",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Mist GET Alarms",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Mist GET Sites",      "type": "main", "index": 0 }],
+        [{ "node": "Mist GET Devices",    "type": "main", "index": 0 }],
+        [{ "node": "Mist GET Clients",    "type": "main", "index": 0 }],
+        [{ "node": "Mist GET Alarms",     "type": "main", "index": 0 }],
+        [{ "node": "Mist RESTART Device", "type": "main", "index": 0 }],
+        [{ "node": "API Unknown Action",  "type": "main", "index": 0 }]
       ]
     },
-    "Mist GET Sites": {
-      "main": [
-        [
-          {
-            "node": "API Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mist GET Devices": {
-      "main": [
-        [
-          {
-            "node": "API Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mist GET Clients": {
-      "main": [
-        [
-          {
-            "node": "API Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mist GET Alarms": {
-      "main": [
-        [
-          {
-            "node": "API Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mist RESTART Device": {
-      "main": [
-        [
-          {
-            "node": "API Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Mist GET Sites":      { "main": [[{ "node": "API Response", "type": "main", "index": 0 }]] },
+    "Mist GET Devices":    { "main": [[{ "node": "API Response", "type": "main", "index": 0 }]] },
+    "Mist GET Clients":    { "main": [[{ "node": "API Response", "type": "main", "index": 0 }]] },
+    "Mist GET Alarms":     { "main": [[{ "node": "API Response", "type": "main", "index": 0 }]] },
+    "Mist RESTART Device": { "main": [[{ "node": "API Response", "type": "main", "index": 0 }]] },
+    "API Unknown Action":  { "main": [[{ "node": "API Response", "type": "main", "index": 0 }]] }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
-    "availableInMCP": true
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
   },
-  "versionId": "e7f7e2bf-32b1-45e9-ad03-633266ad5f15",
+  "versionId": "f9a8b7c6-d5e4-43f2-b1a0-9e8d7c6b5a42",
   "meta": {
     "instanceId": "05fb93d76cbdd18ad4f6d8b3c09a6850c717c9efa679046de07916ab39cb11fd"
   },

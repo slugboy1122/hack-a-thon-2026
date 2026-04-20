@@ -617,48 +617,143 @@ sudo -u postgres pg_dump mist_db > backup.sql
 
 ---
 
-## PART 11: DOCKER ALTERNATIVE
+## PART 11: DOCKER DEPLOYMENT
 
-### Quick Docker Setup
+### Services Overview
+
+The `docker-compose.yml` runs four services on the same `mist-net` bridge network:
+
+| Service | Image | Port | Purpose |
+|---------|-------|------|---------|
+| `nginx` | nginx:alpine | 80, 8080 | Reverse proxy / dashboard |
+| `mist-api` | (Dockerfile) | 8000 (internal) | Flask backend + Claude AI |
+| `n8n` | n8nio/n8n:latest | 127.0.0.1:5678 | Workflow automation |
+| `cloudflared` | cloudflare/cloudflared | — | Tunnel to internet |
+| `postgres` | postgres:15-alpine | 5432 (internal) | Database |
+| `redis` | redis:7-alpine | 6379 (internal) | Cache |
+
+### Required Environment Variables
+
+Create a `.env` file in the project root before starting:
+
 ```bash
-# Install Docker
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
-
-# Create .env
 cat > .env << 'ENV'
-ANTHROPIC_API_KEY=sk-ant-...
-MIST_API_TOKEN=...
-MIST_ORG_ID=...
-JWT_SECRET_KEY=random-secret
-CORS_ORIGINS=http://localhost
-ENV
+# Mist / Juniper
+MIST_API_TOKEN=your_mist_api_token
+MIST_ORG_ID=your_org_id
 
-# Start services
+# Anthropic (used by mist-api and n8n)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Flask
+JWT_SECRET_KEY=change-me-random-secret
+CORS_ORIGINS=https://tatooine.thewifijedi.com
+
+# n8n
+N8N_ENCRYPTION_KEY=change-me-32-char-random-string
+
+# Cloudflare Tunnel
+CLOUDFLARE_TUNNEL_TOKEN=your_tunnel_token
+ENV
+```
+
+### Start / Stop
+
+```bash
+# Start all services
 docker-compose up -d
 
 # Check status
 docker-compose ps
 
-# View logs
+# View logs (all)
+docker-compose logs -f
+
+# View logs (specific service)
+docker-compose logs -f n8n
 docker-compose logs -f mist-api
 
-# Access
-# http://localhost/
+# Stop everything
+docker-compose down
+```
+
+### Cloudflare Tunnel (`cloudflared/config.yml`)
+
+Two hostnames are exposed through the same tunnel:
+
+| Hostname | Backend | Service |
+|----------|---------|---------|
+| `tatooine.thewifijedi.com` | `http://nginx:8080` | Dashboard + API |
+| `workflows.thewifijedi.com` | `http://localhost:5678` | n8n automation UI |
+
+Both are CNAME'd to `80e3c268-c201-4aa2-ac86-c0d912434f27.cfargotunnel.com` in Cloudflare DNS.
+
+---
+
+## PART 11B: N8N WORKFLOW AUTOMATION
+
+### Architecture
+
+```
+Mist Webhook → n8n (workflows.thewifijedi.com)
+                 ↓
+         Normalize Event (Code node)
+                 ↓
+         High Priority? (IF node)
+        ↙                   ↘
+  Claude Analysis        Log Low Priority
+  (Anthropic API)             ↓
+        ↓              Push to Tatooine
+  Parse Analysis       (mist-api:8000)
+        ↓
+  Push to Tatooine
+  (mist-api:8000/webhook/n8n/analysis)
+```
+
+### Mist Webhook Configuration
+
+Point your Mist org webhook to:
+```
+https://workflows.thewifijedi.com/webhook/mist-events
+```
+- Method: `POST`
+- Topics: `alarms`, `audits`, `device-updowns`, `marvis`, `nac-events` (select as needed)
+
+### n8n Access
+
+- UI: `https://workflows.thewifijedi.com`
+- API: `https://workflows.thewifijedi.com/api/v1/` (requires n8n API token)
+- MCP server: `https://workflows.thewifijedi.com/mcp-server/http` (configured in `.mcp.json`)
+
+### Claude AI in n8n
+
+The workflow calls the Anthropic API directly via HTTP Request node using `$env.ANTHROPIC_API_KEY`. The model is `claude-sonnet-4-6` with 2048 max tokens. High-priority events (device down, rogue AP, auth failures, etc.) trigger analysis; low-priority events are logged with a P3 summary and forwarded to Tatooine without calling Claude.
+
+### n8n Data Persistence
+
+n8n data (workflows, credentials, execution history) is stored in the `n8n-data` Docker volume. Back it up with:
+
+```bash
+docker run --rm -v tatooine_n8n-data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/n8n-backup-$(date +%Y%m%d).tar.gz /data
 ```
 
 ---
 
 ## PART 12: FILE MANIFEST
 
-### Application Files (1.4MB)
-- **mist-enterprise-suite-v3-ai.html** (411KB) - Full dashboard
+### Application Files
+- **mist-enterprise-suite-v3-ai.html** - Full dashboard (single-file SPA)
 - **app.py** - Flask backend with Claude + MCP
 - **requirements.txt** - Python packages
-- **docker-compose.yml** - Container config
-- **Dockerfile** - Image definition
-- **nginx.conf** - Web server config
-- **deploy-homelab.sh** - Automated script
+- **docker-compose.yml** - Orchestrates nginx, mist-api, n8n, cloudflared, postgres, redis
+- **Dockerfile** - mist-api container image
+- **nginx.conf** - Reverse proxy config (serves dashboard, proxies /api to mist-api)
+- **n8n.json** - n8n AI Ops workflow (import via n8n UI or API)
+- **cloudflared/config.yml** - Cloudflare Tunnel ingress rules
+- **.mcp.json** - Claude Code MCP server config (n8n MCP at workflows.thewifijedi.com)
+- **signal-noise.html** - Signal/noise ratio utility page
+- **deploy-homelab-VALIDATED.sh** - Bare-metal automated deployment script
 
 ### Documentation Files (350KB+)
 - **HOMELAB_QUICKSTART.md** (10KB) - Fast setup
@@ -670,7 +765,6 @@ docker-compose logs -f mist-api
 - **DEPLOYMENT_AND_OPERATIONS_GUIDE.md** (21KB) - Operations
 - **MIST_API_CHEATSHEET.md** (6KB) - Quick ref
 - **README.md** (12KB) - Overview
-- **DEPLOYMENT_FILES_SUMMARY.md** (9KB) - Package info
 - **MASTER_DEPLOYMENT_GUIDE.md** - This file (all in one)
 
 ---

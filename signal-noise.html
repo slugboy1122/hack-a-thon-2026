@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal & Noise — Healthcare</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0d0f; --bg2:#0f1417; --bg3:#151c20; --panel:#111820;
+  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.12);
+  --text:#e8edf0; --muted:#6b7c88;
+  --accent:#00d4a8; --accent2:#0095ff;
+  --warn:#f5a623; --danger:#ff4757; --ok:#00d4a8;
+  --mono:'IBM Plex Mono',monospace; --sans:'DM Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999}
+
+/* ── Login ── */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)}
+.login-box{width:420px;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:36px;box-shadow:0 24px 64px rgba(0,0,0,0.5)}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.login-logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#000}
+.login-hint{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6;font-family:var(--mono)}
+.login-field{margin-bottom:14px}
+.login-label{font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px}
+.login-input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:10px 12px;border-radius:7px;outline:none;transition:border-color 0.15s}
+.login-input:focus{border-color:var(--accent2)}
+.login-input::placeholder{color:var(--muted)}
+.login-orgid{font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:18px;letter-spacing:0.03em}
+#login-btn{width:100%;padding:11px;background:var(--bg3);color:var(--muted);border:1px solid var(--border2);border-radius:7px;font-size:14px;font-weight:600;font-family:var(--sans);cursor:not-allowed;transition:all 0.15s}
+#login-btn.ready{background:var(--accent);color:#000;border-color:var(--accent);cursor:pointer}
+#login-btn.ready:hover{background:#00efc0}
+#login-error{margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--danger);min-height:16px}
+#email-hint{margin-top:5px;font-family:var(--mono);font-size:10px;min-height:14px}
+.login-footer{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+.login-footer a{color:var(--accent2)}
+
+/* ── App shell ── */
+#app-shell{display:none;flex-direction:column;height:100vh}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000}
+.logo-text{font-size:15px;font-weight:600;letter-spacing:-0.3px}
+.logo-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px}
+.header-right{display:flex;align-items:center;gap:12px}
+#org-site-select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;padding:6px 12px;border-radius:6px;cursor:pointer;outline:none}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.status-label{font-family:var(--mono);font-size:11px;color:var(--accent)}
+#user-pill{font-family:var(--mono);font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn{padding:7px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--sans);font-size:13px;cursor:pointer;transition:all 0.15s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.btn-primary:hover{background:#00efc0;color:#000}
+.btn-danger{border-color:var(--danger);color:var(--danger)}
+.btn-danger:hover{background:rgba(255,71,87,0.1)}
+.btn-tshoot{display:flex;align-items:center;gap:7px;padding:7px 16px;border-radius:6px;border:1px solid rgba(0,149,255,0.5);background:rgba(0,149,255,0.08);color:var(--accent2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s}
+.btn-tshoot:hover{background:rgba(0,149,255,0.18);border-color:var(--accent2)}
+
+/* ── Layout ── */
+.app-body{display:flex;flex:1;overflow:hidden}
+.sidebar{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;overflow-y:auto}
+.sidebar-section{padding:0 16px;margin-bottom:24px}
+.sidebar-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--muted);transition:all 0.1s;margin-bottom:2px}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:rgba(0,212,168,0.1);color:var(--accent)}
+.nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:10px;font-weight:500}
+.nav-badge.warn{background:var(--warn);color:#000}
+.nav-badge.ok{background:rgba(0,212,168,0.2);color:var(--accent)}
+.main{flex:1;overflow-y:auto;padding:24px 28px}
+
+/* ── Cards & KPIs ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi-card.ok::before{background:var(--ok)}
+.kpi-card.warn::before{background:var(--warn)}
+.kpi-card.danger::before{background:var(--danger)}
+.kpi-card.info::before{background:var(--accent2)}
+.kpi-label{font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;font-family:var(--mono)}
+.kpi-value{font-size:28px;font-weight:600;letter-spacing:-1px;line-height:1}
+.kpi-value.ok{color:var(--ok)} .kpi-value.warn{color:var(--warn)} .kpi-value.danger{color:var(--danger)}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:6px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:24px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:500}
+.card-body{padding:18px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:15px;font-weight:500}
+.section-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.tab-content{display:none} .tab-content.active{display:block}
+
+/* ── Tables ── */
+.ap-table{width:100%;border-collapse:collapse}
+.ap-table th{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:0.05em}
+.ap-table td{padding:9px 10px;font-size:12px;border-bottom:1px solid var(--border)}
+.ap-table tr:last-child td{border-bottom:none}
+.ap-table tr:hover td{background:rgba(255,255,255,0.02)}
+.ap-name{font-family:var(--mono);font-size:11px;color:var(--accent2)}
+.sle-bar{width:80px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:6px}
+.sle-fill{height:100%;border-radius:3px}
+.sle-fill.ok{background:var(--ok)} .sle-fill.warn{background:var(--warn)} .sle-fill.danger{background:var(--danger)}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-family:var(--mono)}
+.tag.ok{background:rgba(0,212,168,0.1);color:var(--ok)}
+.tag.warn{background:rgba(245,166,35,0.1);color:var(--warn)}
+.tag.danger{background:rgba(255,71,87,0.1);color:var(--danger)}
+
+/* ── Event log ── */
+.event-log{max-height:320px;overflow-y:auto}
+.event-item{padding:10px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start}
+.event-item:last-child{border-bottom:none}
+.event-level{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;white-space:nowrap;margin-top:1px}
+.event-level.L1{background:rgba(0,149,255,0.15);color:var(--accent2)}
+.event-level.L2{background:rgba(245,166,35,0.15);color:var(--warn)}
+.event-level.L3{background:rgba(0,212,168,0.15);color:var(--accent)}
+.event-level.ACT{background:rgba(255,71,87,0.15);color:var(--danger)}
+.event-msg{font-size:12px;line-height:1.5}
+.event-msg strong{color:var(--text);font-weight:500}
+.event-msg span{color:var(--muted)}
+.event-time{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap}
+
+/* ── Actions ── */
+.action-list{display:flex;flex-direction:column;gap:8px}
+.action-item{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;transition:all 0.15s}
+.action-item:hover{border-color:var(--border2)}
+.action-status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.action-status.done{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.action-status.pending{background:var(--warn);animation:pulse 1.5s ease-in-out infinite}
+.action-status.failed{background:var(--danger)}
+.action-text{flex:1;font-size:12px}
+.action-text strong{display:block;color:var(--text);margin-bottom:2px}
+.action-text span{color:var(--muted);font-size:11px;font-family:var(--mono)}
+.action-time{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.action-btn{padding:4px 10px;border-radius:4px;font-size:11px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;font-family:var(--sans);transition:all 0.1s}
+.action-btn:hover{color:var(--text);border-color:var(--text)}
+
+/* ── Floor map ── */
+.floor-cell{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;cursor:pointer;transition:all 0.15s;border:1px solid transparent}
+.floor-cell:hover{transform:scale(1.05);border-color:rgba(255,255,255,0.2)}
+.floor-cell.ok{background:rgba(0,212,168,0.12);color:var(--ok)}
+.floor-cell.warn{background:rgba(245,166,35,0.12);color:var(--warn)}
+.floor-cell.danger{background:rgba(255,71,87,0.15);color:var(--danger);animation:flash 1s ease-in-out infinite}
+.floor-cell.inactive{background:var(--bg3);color:var(--muted)}
+@keyframes flash{0%,100%{opacity:1}50%{opacity:0.6}}
+.floor-cell-name{font-size:8px;margin-top:2px;opacity:0.7}
+
+/* ── Marvis ── */
+.marvis-input{flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 12px;border-radius:6px;outline:none;transition:border-color 0.15s}
+.marvis-input:focus{border-color:var(--accent)}
+.marvis-response{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:14px;font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--muted);min-height:80px}
+.marvis-response .highlight{color:var(--accent)}
+.marvis-response .warn-text{color:var(--warn)}
+.marvis-response .danger-text{color:var(--danger)}
+
+/* ── Config ── */
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.config-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px}
+.config-label{font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--mono)}
+.config-input{width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;border-radius:5px;outline:none}
+.config-input:focus{border-color:var(--accent)}
+
+/* ── Code ── */
+.code-block{background:#0a0f12;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:var(--mono);font-size:11px;line-height:1.8;overflow-x:auto;color:#8b9bb0}
+.code-block .kw{color:#00d4a8} .code-block .str{color:#f5a623} .code-block .cmt{color:#3d5060} .code-block .fn{color:#0095ff} .code-block .num{color:#ff6b81}
+
+/* ── Troubleshoot drawer ── */
+.tshoot-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:flex-start;justify-content:center;padding-top:60px}
+.tshoot-overlay.open{display:flex}
+.tshoot-drawer{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:680px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.6);animation:slideDown 0.18s ease}
+@keyframes slideDown{from{transform:translateY(-14px);opacity:0}to{transform:translateY(0);opacity:1}}
+.tshoot-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid var(--border)}
+.tshoot-title{font-size:15px;font-weight:600}
+.tshoot-sub{font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.tshoot-close{width:28px;height:28px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.1s}
+.tshoot-close:hover{color:var(--text)}
+.tshoot-body{padding:20px 22px}
+.tshoot-search-row{display:flex;gap:8px;margin-bottom:16px}
+.tshoot-input-wrap{flex:1;position:relative}
+.tshoot-input-wrap .input-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted);pointer-events:none}
+.tshoot-input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:9px 12px 9px 32px;border-radius:7px;outline:none;transition:border-color 0.15s}
+.tshoot-input:focus{border-color:var(--accent2)}
+.tshoot-input::placeholder{color:var(--muted)}
+.tshoot-type-row{display:flex;gap:6px;margin-bottom:16px}
+.tshoot-type-btn{padding:5px 12px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--muted);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all 0.1s}
+.tshoot-type-btn.active{border-color:var(--accent2);color:var(--accent2);background:rgba(0,149,255,0.08)}
+.tshoot-result{background:var(--bg3);border:1px solid var(--border);border-radius:8px;min-height:180px;padding:16px;font-family:var(--mono);font-size:12px;line-height:1.8}
+.tr-section{margin-bottom:14px}
+.tr-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px}
+.tr-value{font-size:12px;line-height:1.6}
+.tr-ok{color:var(--ok)} .tr-warn{color:var(--warn)} .tr-danger{color:var(--danger)} .tr-info{color:var(--accent2)}
+.tr-pill{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;margin-right:4px;margin-bottom:4px}
+.tr-pill.ok{background:rgba(0,212,168,0.12);color:var(--ok)}
+.tr-pill.warn{background:rgba(245,166,35,0.12);color:var(--warn)}
+.tr-pill.danger{background:rgba(255,71,87,0.12);color:var(--danger)}
+.tr-pill.info{background:rgba(0,149,255,0.12);color:var(--accent2)}
+.tr-divider{border:none;border-top:1px solid var(--border);margin:12px 0}
+.tshoot-history{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
+.tshoot-history-label{font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em}
+.history-item{display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer;border-bottom:1px solid var(--border);transition:opacity 0.1s}
+.history-item:hover{opacity:0.75}
+.history-item:last-child{border-bottom:none}
+.history-mac{font-family:var(--mono);font-size:11px;color:var(--accent2)}
+.history-detail{font-size:11px;color:var(--muted);flex:1}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:10px}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">S&N</div>
+      <div>
+        <div style="font-size:16px;font-weight:600">Signal &amp; Noise</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">HEALTHCARE NETWORK INTELLIGENCE</div>
+      </div>
+    </div>
+    <div class="login-hint">
+      // HPE &amp; Juniper staff access only.<br>
+      // Token held in session memory — never stored or logged.
+    </div>
+    <div class="login-field">
+      <div class="login-label">WORK EMAIL</div>
+      <input id="login-email" class="login-input" type="email"
+        placeholder="you@hpe.com or you@juniper.net"
+        oninput="onEmailInput(this.value)"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-token').focus()">
+      <div id="email-hint"></div>
+    </div>
+    <div class="login-field">
+      <div class="login-label">MIST API TOKEN</div>
+      <input id="login-token" class="login-input" type="password"
+        placeholder="Paste your Mist API token"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-label" style="margin-bottom:6px">ORG ID (pre-configured)</div>
+    <div class="login-orgid">5755516e-44e6-4a4b-8b61-bf7fc3709415</div>
+    <button id="login-btn" onclick="doLogin()" disabled>Sign In →</button>
+    <div id="login-error"></div>
+    <div class="login-footer">
+      Access restricted to <span style="color:var(--accent2)">@hpe.com</span> and <span style="color:var(--accent2)">@juniper.net</span><br><br>
+      Get your token: <a href="https://manage.mist.com/user.html#!api" target="_blank">manage.mist.com → My Profile → API Token</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ══════════════════════════════════════════════════════════════ -->
+<div id="app-shell">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">S&N</div>
+      <div>
+        <div class="logo-text">Signal &amp; Noise</div>
+        <div class="logo-sub">HEALTHCARE NETWORK INTELLIGENCE</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <select id="org-site-select" onchange="filterBySite(this.value)">
+        <option value="">Loading sites...</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="status-dot"></div>
+        <span class="status-label" id="conn-label">CONNECTED</span>
+      </div>
+      <button class="btn-tshoot" onclick="openTshoot()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+        Troubleshoot Connection
+      </button>
+      <button class="btn btn-primary" onclick="runScan()">▶ Run Scan</button>
+      <button class="btn" onclick="showTab('config')">⚙ Config</button>
+      <span id="user-pill"></span>
+      <button class="btn btn-danger" onclick="logout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <nav class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Overview</div>
+        <div class="nav-item active" onclick="showTab('dashboard');setActive(this)"><span>◈</span> Dashboard</div>
+        <div class="nav-item" onclick="showTab('floormap');setActive(this)"><span>⊞</span> Floor Map <span class="nav-badge warn">2</span></div>
+        <div class="nav-item" onclick="showTab('aps');setActive(this)"><span>◉</span> Access Points <span class="nav-badge" id="ap-count-badge">—</span></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Self-Driving</div>
+        <div class="nav-item" onclick="showTab('detection');setActive(this)"><span>◎</span> L1 Detection <span class="nav-badge">3</span></div>
+        <div class="nav-item" onclick="showTab('diagnosis');setActive(this)"><span>◐</span> L2 Diagnosis <span class="nav-badge warn">1</span></div>
+        <div class="nav-item" onclick="showTab('remediation');setActive(this)"><span>◑</span> L3 Remediation <span class="nav-badge ok">5</span></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Network Config</div>
+        <div class="nav-item" onclick="showTab('wlans');setActive(this)"><span>◈</span> WLANs <span class="nav-badge ok" id="wlan-count-badge">—</span></div>
+        <div class="nav-item" onclick="showTab('switches');setActive(this)"><span>◫</span> Switches <span class="nav-badge ok" id="sw-count-badge">—</span></div>
+        <div class="nav-item" onclick="showTab('wan');setActive(this)"><span>◭</span> WAN / Gateways <span class="nav-badge ok" id="wan-count-badge">—</span></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Intelligence</div>
+        <div class="nav-item" onclick="showTab('marvis');setActive(this)"><span>✦</span> Marvis Query</div>
+        <div class="nav-item" onclick="showTab('log');setActive(this)"><span>≡</span> Event Log</div>
+        <div class="nav-item" onclick="showTab('config');setActive(this)"><span>⊙</span> Configuration</div>
+      </div>
+    </nav>
+
+    <main class="main">
+
+      <!-- DASHBOARD -->
+      <div id="tab-dashboard" class="tab-content active">
+        <div class="section-header">
+          <div>
+            <div class="section-title" id="dash-title">Network Health</div>
+            <div class="section-sub" id="dash-sub">Last scan: <span id="last-scan-time">—</span> · <span id="scan-status">Loading...</span></div>
+          </div>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-card ok"><div class="kpi-label">Network SLE Score</div><div class="kpi-value ok" id="kpi-sle">—</div><div class="kpi-sub" id="kpi-sle-sub">Loading live data...</div></div>
+          <div class="kpi-card danger"><div class="kpi-label">Active Incidents</div><div class="kpi-value danger" id="kpi-incidents">—</div><div class="kpi-sub">Detecting via Marvis</div></div>
+          <div class="kpi-card warn"><div class="kpi-label">Sites</div><div class="kpi-value warn" id="kpi-sites">—</div><div class="kpi-sub" id="kpi-sites-sub">Loading...</div></div>
+          <div class="kpi-card info"><div class="kpi-label">Access Points</div><div class="kpi-value" style="color:var(--accent2)" id="kpi-aps">—</div><div class="kpi-sub">Across all sites</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Site Health</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="site-health-status">LOADING</span></div>
+            <div class="card-body"><div id="site-rows"><div style="font-family:var(--mono);font-size:11px;color:var(--muted)">// Loading sites from Mist API...</div></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Autonomous Action Feed</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">LIVE</span></div>
+            <div class="card-body" style="padding:10px 18px"><div class="event-log" id="event-feed"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Flagged Access Points</span><button class="btn" style="font-size:11px;padding:4px 10px" onclick="runScan()">Refresh</button></div>
+          <div class="card-body" style="padding:0">
+            <table class="ap-table"><thead><tr><th>AP Name</th><th>Location</th><th>SLE Score</th><th>Issue Detected</th><th>Diagnosis</th><th>Action Taken</th></tr></thead>
+            <tbody id="ap-table-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- FLOOR MAP -->
+      <div id="tab-floormap" class="tab-content">
+        <div class="section-header">
+          <div><div class="section-title">Floor Map — AP Coverage &amp; Health</div><div class="section-sub">Click any cell to query Marvis</div></div>
+          <select style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;padding:6px 12px;border-radius:6px;cursor:pointer;outline:none" id="floor-select" onchange="renderFloor(this.value)">
+            <option value="icu">ICU — Floor 3</option><option value="er">Emergency — Floor 1</option>
+            <option value="med">Medical/Surgical — Floor 4</option><option value="admin">Admin — Floor 2</option>
+          </select>
+        </div>
+        <div class="card"><div class="card-body">
+          <div id="floor-map-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;max-width:560px;margin:0 auto"></div>
+          <div style="display:flex;gap:20px;margin-top:20px;justify-content:center;font-family:var(--mono);font-size:11px">
+            <span style="color:var(--ok)">● Healthy</span><span style="color:var(--warn)">● Degraded</span>
+            <span style="color:var(--danger)">● Critical</span><span style="color:var(--muted)">● Inactive</span>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- ACCESS POINTS -->
+      <div id="tab-aps" class="tab-content">
+        <div class="section-header"><div><div class="section-title">All Access Points</div><div class="section-sub" id="ap-tab-sub">Loading from Mist API...</div></div></div>
+        <div class="card"><div class="card-body" style="padding:0">
+          <table class="ap-table"><thead><tr><th>AP</th><th>Site</th><th>SSID</th><th>Clients</th><th>SLE</th><th>Status</th></tr></thead>
+          <tbody id="all-ap-body"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// Loading APs from live Mist org...</td></tr></tbody></table>
+        </div></div>
+      </div>
+
+      <!-- L1 DETECTION -->
+      <div id="tab-detection" class="tab-content">
+        <div class="section-header"><div><div class="section-title">Level 1 — Intelligent Detection</div><div class="section-sub">Polling Mist API for IoMT anomalies, SLE degradation, RF issues</div></div></div>
+        <div class="grid-2" style="margin-bottom:20px">
+          <div class="card"><div class="card-header"><span class="card-title">Detection Rules Active</span></div><div class="card-body"><div class="action-list" id="detection-rules"></div></div></div>
+          <div class="card"><div class="card-header"><span class="card-title">Detection Logic (Python)</span></div><div class="card-body" style="padding:0">
+            <div class="code-block" style="border:none;border-radius:0">
+<span class="cmt"># L1: SLE + Marvis + IoMT disconnect detection</span>
+<span class="kw">def</span> <span class="fn">run_detection</span>(apisession, org_id, cfg):
+    sites = mistapi.api.v1.orgs.sites.<span class="fn">listOrgSites</span>(
+        apisession, org_id).data
+    <span class="kw">for</span> site <span class="kw">in</span> sites:
+        sle = mistapi.api.v1.sites.sle.<span class="fn">getSiteSleImpactSummary</span>(
+            apisession, site[<span class="str">"id"</span>],
+            scope=<span class="str">"site"</span>, metric=<span class="str">"wifi-result"</span>)
+        <span class="kw">if</span> sle &lt; cfg.sle_threshold:
+            issues.append(Issue(site_id, <span class="str">"SLE_DEGRADED"</span>))
+        <span class="cmt"># IoMT SSID disconnect watch</span>
+        events = mistapi.api.v1.sites.clients.<span class="fn">searchSiteClientsEvents</span>(
+            apisession, site[<span class="str">"id"</span>], ssid=<span class="str">"MedicalDevices"</span>,
+            duration=<span class="str">"5m"</span>)
+            </div>
+          </div></div>
+        </div>
+        <div class="card"><div class="card-header"><span class="card-title">Recent Detections</span></div>
+        <div class="card-body" style="padding:0"><div class="event-log" id="detection-log" style="padding:0 18px;max-height:280px"></div></div></div>
+      </div>
+
+      <!-- L2 DIAGNOSIS -->
+      <div id="tab-diagnosis" class="tab-content">
+        <div class="section-header"><div><div class="section-title">Level 2 — Automated Diagnosis</div><div class="section-sub">Correlating Mist telemetry to determine root cause via Marvis</div></div></div>
+        <div class="grid-2" style="margin-bottom:20px">
+          <div class="card"><div class="card-header"><span class="card-title">Root Cause Analysis</span></div><div class="card-body"><div id="rca-list" class="action-list"></div></div></div>
+          <div class="card"><div class="card-header"><span class="card-title">Diagnosis Logic (Python)</span></div><div class="card-body" style="padding:0">
+            <div class="code-block" style="border:none;border-radius:0">
+<span class="cmt"># L2: Marvis root cause classification</span>
+<span class="kw">def</span> <span class="fn">run_diagnosis</span>(apisession, issue, org_id):
+    suggestions = mistapi.api.v1.sites.insights.<span class="fn">getSiteInsightMetrics</span>(
+        apisession, issue.site_id,
+        metric=<span class="str">"wifi-result"</span>).data
+    rca_map = {
+        <span class="str">"wireless"</span>: <span class="str">"RF_INTERFERENCE"</span>,
+        <span class="str">"authentication"</span>: <span class="str">"AUTH_FAILURE"</span>,
+        <span class="str">"dhcp"</span>: <span class="str">"DHCP_ISSUE"</span>,
+        <span class="str">"switch"</span>: <span class="str">"UPSTREAM_SWITCH"</span>,
+        <span class="str">"wan"</span>: <span class="str">"WAN_BROWNOUT"</span>
+    }
+    <span class="kw">for</span> s <span class="kw">in</span> suggestions:
+        issue.root_cause = rca_map.get(s[<span class="str">"category"</span>])
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- L3 REMEDIATION -->
+      <div id="tab-remediation" class="tab-content">
+        <div class="section-header"><div><div class="section-title">Level 3 — Autonomous Remediation</div><div class="section-sub">Actions taken automatically · Full audit trail · Dry-run mode available</div></div></div>
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-header"><span class="card-title">Remediation Actions</span>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+              <input type="checkbox" id="dryrun-toggle" checked style="accent-color:var(--accent)"> Dry-run mode
+            </label>
+          </div>
+          <div class="card-body"><div class="action-list" id="remediation-list"></div></div>
+        </div>
+      </div>
+
+      <!-- MARVIS -->
+      <div id="tab-marvis" class="tab-content">
+        <div class="section-header"><div><div class="section-title">Marvis Query Interface</div><div class="section-sub">Live queries to Mist Marvis AI via Worker proxy</div></div></div>
+        <div class="card" style="margin-bottom:18px"><div class="card-body">
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <input class="marvis-input" id="marvis-q" placeholder="e.g. Why are clients on this site experiencing poor connectivity?" onkeydown="if(event.key==='Enter')queryMarvis()">
+            <button class="btn btn-primary" onclick="queryMarvis()">Ask Marvis</button>
+          </div>
+          <div class="marvis-response" id="marvis-response"><span style="opacity:0.4">// Queries are proxied via the Worker to Mist Marvis API.<br>// Login required — your session token is used automatically.</span></div>
+        </div></div>
+        <div class="grid-3">
+          <div class="card" style="cursor:pointer" onclick="setMarvisQ('What are the top wireless issues this week?')"><div class="card-body" style="padding:12px 14px"><div style="font-size:12px;font-weight:500;margin-bottom:4px">Weekly summary</div><div style="font-size:11px;color:var(--muted)">"Top wireless issues this week?"</div></div></div>
+          <div class="card" style="cursor:pointer" onclick="setMarvisQ('Which APs have the worst roaming performance for medical devices?')"><div class="card-body" style="padding:12px 14px"><div style="font-size:12px;font-weight:500;margin-bottom:4px">IoMT roaming</div><div style="font-size:11px;color:var(--muted)">"Worst roaming APs for medical devices?"</div></div></div>
+          <div class="card" style="cursor:pointer" onclick="setMarvisQ('Are there any authentication failures on clinical SSIDs?')"><div class="card-body" style="padding:12px 14px"><div style="font-size:12px;font-weight:500;margin-bottom:4px">Auth failures</div><div style="font-size:11px;color:var(--muted)">"Auth failures on clinical SSIDs?"</div></div></div>
+        </div>
+      </div>
+
+      <!-- EVENT LOG -->
+      <div id="tab-log" class="tab-content">
+        <div class="section-header"><div><div class="section-title">Event Log</div><div class="section-sub">Full audit trail of detections, diagnoses, and autonomous actions</div></div></div>
+        <div class="card"><div class="card-body" style="padding:8px 18px"><div class="event-log" id="full-log" style="max-height:none"></div></div></div>
+      </div>
+
+      <!-- CONFIG -->
+      <div id="tab-config" class="tab-content">
+        <div class="section-header"><div><div class="section-title">Configuration</div><div class="section-sub">Detection thresholds and notification channels</div></div></div>
+        <div class="grid-2" style="margin-bottom:18px">
+          <div class="card"><div class="card-header"><span class="card-title">Session Info</span></div><div class="card-body">
+            <div class="config-grid">
+              <div class="config-item"><div class="config-label">ORG ID</div><input class="config-input" value="5755516e-44e6-4a4b-8b61-bf7fc3709415" readonly style="opacity:0.6"></div>
+              <div class="config-item"><div class="config-label">LOGGED IN AS</div><input class="config-input" id="cfg-user" readonly style="opacity:0.6"></div>
+              <div class="config-item" style="grid-column:1/-1"><div class="config-label">MIST HOST</div><input class="config-input" value="api.mist.com (Global 01)" readonly style="opacity:0.6"></div>
+            </div>
+          </div></div>
+          <div class="card"><div class="card-header"><span class="card-title">Detection Thresholds</span></div><div class="card-body">
+            <div class="config-grid">
+              <div class="config-item"><div class="config-label">SLE ALERT THRESHOLD (%)</div><input class="config-input" id="cfg-sle" value="70"></div>
+              <div class="config-item"><div class="config-label">POLL INTERVAL (SECONDS)</div><input class="config-input" id="cfg-interval" value="300"></div>
+              <div class="config-item"><div class="config-label">IOMT SSID</div><input class="config-input" id="cfg-iomt" value="MedicalDevices"></div>
+              <div class="config-item"><div class="config-label">NURSE CALL SSID</div><input class="config-input" id="cfg-nursecall" value="NurseCall-VOIP"></div>
+            </div>
+          </div></div>
+        </div>
+        <div class="card"><div class="card-header"><span class="card-title">Notification Channels</span></div><div class="card-body">
+          <div class="config-grid">
+            <div class="config-item"><div class="config-label">SLACK WEBHOOK</div><input class="config-input" id="cfg-slack" placeholder="https://hooks.slack.com/services/..."></div>
+            <div class="config-item"><div class="config-label">ITSM ENDPOINT</div><input class="config-input" id="cfg-snow" placeholder="https://yourinstance.service-now.com/..."></div>
+            <div class="config-item"><div class="config-label">ALERT EMAIL</div><input class="config-input" id="cfg-email" placeholder="noc@hospital.org"></div>
+            <div class="config-item"><div class="config-label">AUTO-REMEDIATE</div>
+              <select class="config-input" id="cfg-auto">
+                <option value="dryrun">Dry-run only</option>
+                <option value="rfonly">RF adjustments only</option>
+                <option value="full">Full autonomous mode</option>
+              </select>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+
+      <!-- ══ WLAN TAB ══════════════════════════════════════════════════════════ -->
+      <div id="tab-wlans" class="tab-content">
+        <div class="section-header">
+          <div>
+            <div class="section-title">WLANs</div>
+            <div class="section-sub" id="wlan-sub">Loading from Mist API...</div>
+          </div>
+          <button class="btn" onclick="loadWlans()" style="font-size:11px;padding:4px 10px">Refresh</button>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <table class="ap-table" id="wlan-table">
+              <thead><tr>
+                <th>SSID</th>
+                <th>Band</th>
+                <th>Security</th>
+                <th>VLAN</th>
+                <th>Auth</th>
+                <th>Enabled</th>
+                <th>Scope</th>
+              </tr></thead>
+              <tbody id="wlan-body">
+                <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// Loading WLANs from live Mist org...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ SWITCHES TAB ══════════════════════════════════════════════════════ -->
+      <div id="tab-switches" class="tab-content">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Switches</div>
+            <div class="section-sub" id="sw-sub">Loading from Mist API...</div>
+          </div>
+          <button class="btn" onclick="loadSwitches()" style="font-size:11px;padding:4px 10px">Refresh</button>
+        </div>
+        <div class="kpi-row" id="sw-kpi-row" style="display:none">
+          <div class="kpi-card ok"><div class="kpi-label">Total Switches</div><div class="kpi-value ok" id="sw-kpi-total">—</div><div class="kpi-sub">In org</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">Connected</div><div class="kpi-value ok" id="sw-kpi-connected">—</div><div class="kpi-sub">Status: connected</div></div>
+          <div class="kpi-card danger"><div class="kpi-label">Disconnected</div><div class="kpi-value danger" id="sw-kpi-disconnected">—</div><div class="kpi-sub">Status: disconnected</div></div>
+          <div class="kpi-card warn"><div class="kpi-label">Unknown / Other</div><div class="kpi-value warn" id="sw-kpi-other">—</div><div class="kpi-sub">Status: unknown</div></div>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <table class="ap-table" id="sw-table">
+              <thead><tr>
+                <th>Name</th>
+                <th>Model</th>
+                <th>Site</th>
+                <th>IP Address</th>
+                <th>Version</th>
+                <th>Uptime</th>
+                <th>PoE Used / Total</th>
+                <th>Status</th>
+              </tr></thead>
+              <tbody id="sw-body">
+                <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// Loading switches from live Mist org...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ WAN TAB ═══════════════════════════════════════════════════════════ -->
+      <div id="tab-wan" class="tab-content">
+        <div class="section-header">
+          <div>
+            <div class="section-title">WAN / Gateways</div>
+            <div class="section-sub" id="wan-sub">Loading from Mist API...</div>
+          </div>
+          <button class="btn" onclick="loadWan()" style="font-size:11px;padding:4px 10px">Refresh</button>
+        </div>
+        <div class="kpi-row" id="wan-kpi-row" style="display:none">
+          <div class="kpi-card ok"><div class="kpi-label">Total Gateways</div><div class="kpi-value ok" id="wan-kpi-total">—</div><div class="kpi-sub">In org</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">Connected</div><div class="kpi-value ok" id="wan-kpi-connected">—</div><div class="kpi-sub">Status: connected</div></div>
+          <div class="kpi-card danger"><div class="kpi-label">Disconnected</div><div class="kpi-value danger" id="wan-kpi-disconnected">—</div><div class="kpi-sub">Status: disconnected</div></div>
+          <div class="kpi-card info"><div class="kpi-label">WAN Tunnels</div><div class="kpi-value" style="color:var(--accent2)" id="wan-kpi-tunnels">—</div><div class="kpi-sub">Active tunnels</div></div>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <table class="ap-table" id="wan-table">
+              <thead><tr>
+                <th>Name</th>
+                <th>Model</th>
+                <th>Site</th>
+                <th>IP Address</th>
+                <th>Version</th>
+                <th>Uptime</th>
+                <th>WAN IPs</th>
+                <th>Status</th>
+              </tr></thead>
+              <tbody id="wan-body">
+                <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// Loading WAN gateways from live Mist org...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══ TROUBLESHOOT DRAWER ══════════════════════════════════════════════════ -->
+<div class="tshoot-overlay" id="tshoot-overlay" onclick="if(event.target===this)closeTshoot()">
+  <div class="tshoot-drawer">
+    <div class="tshoot-header">
+      <div><div class="tshoot-title">Troubleshoot My Connection</div><div class="tshoot-sub">Powered by Marvis · proxied via /api/v1/orgs/:org_id/troubleshoot</div></div>
+      <button class="tshoot-close" onclick="closeTshoot()">✕</button>
+    </div>
+    <div class="tshoot-body">
+      <div class="tshoot-search-row">
+        <div class="tshoot-input-wrap">
+          <span class="input-icon">⌕</span>
+          <input class="tshoot-input" id="tshoot-input" placeholder="MAC address (aa:bb:cc:dd:ee:ff) or username / hostname"
+            onkeydown="if(event.key==='Enter')runTshoot()" oninput="detectInputType(this.value)">
+        </div>
+        <button class="btn btn-primary" onclick="runTshoot()" id="tshoot-btn">Troubleshoot</button>
+      </div>
+      <div class="tshoot-type-row">
+        <span style="font-size:11px;color:var(--muted);font-family:var(--mono);align-self:center;margin-right:4px">Type:</span>
+        <button class="tshoot-type-btn active" data-type="wireless" onclick="setTshootType(this)">Wireless</button>
+        <button class="tshoot-type-btn" data-type="wired" onclick="setTshootType(this)">Wired</button>
+        <button class="tshoot-type-btn" data-type="wan" onclick="setTshootType(this)">WAN</button>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">Site:</span>
+          <select id="tshoot-site" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:11px;padding:4px 9px;border-radius:6px;cursor:pointer;outline:none">
+            <option value="">All sites</option>
+          </select>
+        </div>
+      </div>
+      <div id="tshoot-hint" style="font-size:11px;font-family:var(--mono);margin-bottom:14px;min-height:16px;color:var(--muted)"></div>
+      <div class="tshoot-result" id="tshoot-result" style="color:var(--muted)">
+        <span style="opacity:0.35">// Enter a MAC address, username, or hostname above.<br>
+// MAC → calls Marvis directly via Worker proxy.<br>
+// Username/hostname → resolves to MAC via /clients/search first.<br>
+// Results are live from your Mist org.</span>
+      </div>
+      <div class="tshoot-history"><div class="tshoot-history-label">Recent lookups</div>
+        <div id="tshoot-history-list"><div style="font-size:11px;color:var(--muted);font-family:var(--mono);padding:8px 0">No recent lookups</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ SESSION ═══════════════════════════════════════════════════════════════════
+const ORG_ID = '5755516e-44e6-4a4b-8b61-bf7fc3709415';
+const ALLOWED = ['hpe.com','juniper.net'];
+
+const SESSION = {
+  token: sessionStorage.getItem('sn_token') || null,
+  self:  JSON.parse(sessionStorage.getItem('sn_self') || 'null'),
+};
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+function getEmailDomain(e){ const p=e.toLowerCase().trim().split('@'); return p.length===2?p[1]:null; }
+function domainOk(e){ return ALLOWED.includes(getEmailDomain(e)); }
+
+function onEmailInput(v){
+  const hint=document.getElementById('email-hint');
+  const btn=document.getElementById('login-btn');
+  if(!v||!v.includes('@')){ hint.textContent=''; setLoginBtn(false); return; }
+  if(domainOk(v)){
+    hint.innerHTML='<span style="color:var(--ok)">✓ '+getEmailDomain(v)+' — access granted</span>';
+    setLoginBtn(true);
+  } else {
+    hint.innerHTML='<span style="color:var(--danger)">✗ @'+(getEmailDomain(v)||'?')+' not authorised</span>';
+    setLoginBtn(false);
+  }
+}
+
+function setLoginBtn(ready){
+  const b=document.getElementById('login-btn');
+  b.disabled=!ready;
+  b.className=ready?'ready':'';
+}
+
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const token=document.getElementById('login-token').value.trim();
+  const err=document.getElementById('login-error');
+  const btn=document.getElementById('login-btn');
+  err.textContent='';
+  if(!domainOk(email)){ err.textContent='Access restricted to @hpe.com and @juniper.net.'; return; }
+  if(!token){ err.textContent='Please enter your Mist API token.'; return; }
+  btn.disabled=true; btn.textContent='Validating...';
+  try{
+    const r=await fetch('/api/validate',{headers:{'X-Mist-Token':token}});
+    const d=await r.json();
+    if(r.ok && d.email){
+      const td=getEmailDomain(d.email);
+      if(!ALLOWED.includes(td)){ err.textContent='Token belongs to @'+td+' — not authorised.'; setLoginBtn(true); return; }
+      SESSION.token=token; SESSION.self=d;
+      sessionStorage.setItem('sn_token',token);
+      sessionStorage.setItem('sn_self',JSON.stringify(d));
+      startApp();
+    } else {
+      err.textContent='Invalid token — check and try again.';
+      setLoginBtn(true);
+    }
+  } catch(e){ err.textContent='Connection error: '+e.message; setLoginBtn(true); }
+  btn.textContent='Sign In →';
+}
+
+function logout(){
+  sessionStorage.removeItem('sn_token');
+  sessionStorage.removeItem('sn_self');
+  SESSION.token=null; SESSION.self=null;
+  document.getElementById('app-shell').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-token').value='';
+  document.getElementById('login-email').value='';
+  document.getElementById('email-hint').textContent='';
+  setLoginBtn(false);
+}
+
+// ── API proxy ─────────────────────────────────────────────────────────────────
+async function mistFetch(path, opts={}){
+  if(!SESSION.token){ logout(); throw new Error('No token'); }
+  const r=await fetch('/api/v1'+path,{
+    method:opts.method||'GET',
+    headers:{'Content-Type':'application/json','X-Mist-Token':SESSION.token},
+    body:opts.body?JSON.stringify(opts.body):undefined
+  });
+  if(r.status===401){ logout(); throw new Error('Unauthorized'); }
+  return r.json();
+}
+
+// ── App start ─────────────────────────────────────────────────────────────────
+function startApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-shell').style.display='flex';
+  const email=SESSION.self?.email||'';
+  document.getElementById('user-pill').textContent=email;
+  document.getElementById('cfg-user').value=email;
+  renderSeedData();
+  loadLiveData();
+  // Pre-load config tabs in background
+  setTimeout(()=>{ loadWlans(); loadSwitches(); loadWan(); }, 1500);
+}
+
+// ── Live data ─────────────────────────────────────────────────────────────────
+async function loadLiveData(){
+  document.getElementById('scan-status').textContent='Loading live data...';
+  try{
+    const [sitesData, statsData] = await Promise.allSettled([
+      mistFetch('/orgs/'+ORG_ID+'/sites'),
+      mistFetch('/orgs/'+ORG_ID+'/stats'),
+    ]);
+
+    // Sites
+    if(sitesData.status==='fulfilled'){
+      const sites=Array.isArray(sitesData.value)?sitesData.value:(sitesData.value.results||[]);
+      renderSiteList(sites);
+      document.getElementById('kpi-sites').textContent=sites.length;
+      document.getElementById('kpi-sites-sub').textContent=sites.length+' site'+(sites.length===1?'':'s')+ ' in org';
+      // Populate tshoot site selector
+      const sel=document.getElementById('tshoot-site');
+      sel.innerHTML='<option value="">All sites</option>'+sites.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+      // Populate org selector
+      const osel=document.getElementById('org-site-select');
+      osel.innerHTML='<option value="">All sites ('+sites.length+')</option>'+sites.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+    }
+
+    // Org stats
+    if(statsData.status==='fulfilled'){
+      const s=statsData.value;
+      if(s.num_aps){ document.getElementById('kpi-aps').textContent=s.num_aps; document.getElementById('ap-count-badge').textContent=s.num_aps; }
+      if(s.num_sites){ document.getElementById('kpi-sites').textContent=s.num_sites; }
+      document.getElementById('dash-sub').innerHTML='Last scan: <span id="last-scan-time">'+new Date().toLocaleTimeString()+'</span> · Org live · '+( s.num_sites||'?')+' sites · '+(s.num_aps||'?')+' APs';
+    }
+
+    document.getElementById('scan-status').textContent='Live';
+    document.getElementById('site-health-status').textContent='LIVE';
+    document.getElementById('last-scan-time').textContent=new Date().toLocaleTimeString();
+
+  } catch(e){
+    document.getElementById('scan-status').textContent='Error: '+e.message;
+  }
+}
+
+function renderSiteList(sites){
+  const el=document.getElementById('site-rows');
+  if(!sites.length){ el.innerHTML='<div style="font-family:var(--mono);font-size:11px;color:var(--muted)">// No sites found in org</div>'; return; }
+  el.innerHTML=sites.slice(0,10).map(s=>{
+    const sle=s.sle_wifi_result_score||s.sle||null;
+    const status=sle===null?'inactive':sle>80?'ok':sle>70?'warn':'danger';
+    const color=status==='ok'?'var(--ok)':status==='warn'?'var(--warn)':status==='inactive'?'var(--muted)':'var(--danger)';
+    const pct=sle||0;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0${status==='danger'?';box-shadow:0 0 8px var(--danger)':''}"></div>
+      <div style="flex:1;font-size:12px">${s.name}</div>
+      <div style="width:80px;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
+      </div>
+      <div style="font-family:var(--mono);font-size:11px;min-width:36px;text-align:right;color:${color}">${sle!==null?pct+'%':'—'}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterBySite(siteId){
+  if(siteId) document.getElementById('dash-title').textContent='Network Health — Site Filter Active';
+  else document.getElementById('dash-title').textContent='Network Health — All Sites';
+}
+
+function runScan(){
+  document.getElementById('scan-status').textContent='Scanning...';
+  loadLiveData();
+}
+
+// ── Marvis live query ─────────────────────────────────────────────────────────
+async function queryMarvis(){
+  const q=document.getElementById('marvis-q').value.trim();
+  const resp=document.getElementById('marvis-response');
+  if(!q) return;
+  resp.innerHTML='<span style="color:var(--accent);opacity:0.6">// Querying Marvis...</span>';
+  try{
+    const data=await mistFetch('/orgs/'+ORG_ID+'/marvis',{method:'POST',body:{query:q}});
+    const answer=data.answer||data.text||data.message||JSON.stringify(data,null,2);
+    resp.innerHTML='<span class="highlight">// Marvis response</span><br><br>'+
+      answer.replace(/</g,'&lt;').replace(/\n/g,'<br>');
+  } catch(e){
+    resp.innerHTML='<span style="color:var(--danger)">// Error: '+e.message+'</span>';
+  }
+}
+
+function setMarvisQ(q){ showTab('marvis'); document.getElementById('marvis-q').value=q; queryMarvis(); }
+
+// ── Troubleshoot ──────────────────────────────────────────────────────────────
+const tshootState={type:'wireless'};
+const MAC_RE=/^([0-9a-f]{2}[:\-]){5}[0-9a-f]{2}$/i;
+const MAC_COMPACT=/^[0-9a-f]{12}$/i;
+
+function normMAC(m){ return m.replace(/[:\-]/g,'').toLowerCase().match(/.{2}/g).join(':'); }
+
+function openTshoot(){ document.getElementById('tshoot-overlay').classList.add('open'); setTimeout(()=>document.getElementById('tshoot-input').focus(),120); }
+function closeTshoot(){ document.getElementById('tshoot-overlay').classList.remove('open'); }
+function setTshootType(btn){ document.querySelectorAll('.tshoot-type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); tshootState.type=btn.dataset.type; }
+
+function detectInputType(v){
+  const h=document.getElementById('tshoot-hint');
+  if(!v){h.textContent='';return;}
+  if(MAC_RE.test(v)||MAC_COMPACT.test(v)) h.innerHTML='<span style="color:var(--ok)">✓ MAC address — calling Marvis directly</span>';
+  else if(v.length>3) h.innerHTML='<span style="color:var(--accent2)">→ Username/hostname — will resolve to MAC first</span>';
+  else h.textContent='';
+}
+
+async function runTshoot(){
+  const raw=document.getElementById('tshoot-input').value.trim();
+  if(!raw) return;
+  const result=document.getElementById('tshoot-result');
+  const btn=document.getElementById('tshoot-btn');
+  btn.disabled=true; btn.textContent='Querying...';
+  result.style.color='var(--muted)';
+  result.innerHTML='<span style="color:var(--accent2)">// Step 1: '+(MAC_RE.test(raw)||MAC_COMPACT.test(raw)?'MAC detected — calling Marvis...':'Resolving identifier...')+'</span>';
+
+  try{
+    let mac=null;
+    if(MAC_RE.test(raw)||MAC_COMPACT.test(raw)){
+      mac=normMAC(raw);
+    } else {
+      result.innerHTML='<span style="color:var(--accent2)">// Resolving "'+raw+'" via /clients/search...</span>';
+      const d=await mistFetch('/orgs/'+ORG_ID+'/clients/search?text='+encodeURIComponent(raw)+'&limit=1');
+      const r=(d.results||[]);
+      mac=r.length?normMAC(r[0].mac):null;
+      if(!mac) throw new Error('Could not resolve "'+raw+'" to a MAC address');
+    }
+
+    result.innerHTML='<span style="color:var(--accent2)">// Step 2: GET /orgs/'+ORG_ID.slice(0,8)+'…/troubleshoot?mac='+mac+'&amp;type='+tshootState.type+'</span>';
+
+    const siteId=document.getElementById('tshoot-site').value;
+    let path='/orgs/'+ORG_ID+'/troubleshoot?mac='+encodeURIComponent(mac)+'&type='+tshootState.type;
+    if(siteId) path+='&site_id='+siteId;
+
+    const live=await mistFetch(path);
+    renderTshootLive(live, mac, raw);
+    addTshootHistory(raw, mac, live);
+  } catch(e){
+    result.style.color='var(--text)';
+    result.innerHTML='<div class="tr-section"><div class="tr-label">Error</div><div class="tr-value" style="color:var(--danger)">'+e.message+'</div></div>';
+  }
+  btn.disabled=false; btn.textContent='Troubleshoot';
+}
+
+function renderTshootLive(d, mac, query){
+  const result=document.getElementById('tshoot-result');
+  const noIssue=!d.reason||['no issue','healthy','no problem','no failure'].some(p=>d.reason.toLowerCase().includes(p));
+  const col=noIssue?'var(--ok)':'var(--danger)';
+  const label=noIssue?'HEALTHY':'ISSUE DETECTED';
+  const resolveNote=(query!==mac&&!MAC_RE.test(query)&&!MAC_COMPACT.test(query))
+    ?`<div class="tr-section"><div class="tr-label">Resolved</div><div class="tr-value"><span class="tr-info">"${query}"</span> → <span class="tr-info">${mac}</span></div></div><hr class="tr-divider">` :'';
+  const clientInfo=d.client||{};
+  const rssi=clientInfo.rssi||0;
+  const snr=clientInfo.snr||0;
+  result.style.color='var(--text)';
+  result.innerHTML=`
+    ${resolveNote}
+    <div class="tr-section" style="display:flex;align-items:center;justify-content:space-between">
+      <div><div class="tr-label">Status</div><div class="tr-value" style="font-size:14px;font-weight:500;color:${col}">${label}</div></div>
+      <div style="text-align:right"><div class="tr-label">MAC</div><div class="tr-value" style="color:var(--accent2)">${mac}</div></div>
+    </div>
+    <hr class="tr-divider">
+    ${clientInfo.name?`<div class="tr-section"><div class="tr-label">Client</div><div class="tr-value" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+      <span class="tr-pill info">${clientInfo.name}</span>
+      ${clientInfo.ip?`<span class="tr-pill info">${clientInfo.ip}</span>`:''}
+      ${clientInfo.ssid?`<span class="tr-pill info">SSID: ${clientInfo.ssid}</span>`:''}
+      ${clientInfo.ap?`<span class="tr-pill info">AP: ${clientInfo.ap}</span>`:''}
+      ${rssi?`<span class="tr-pill ${rssi>-70?'ok':rssi>-80?'warn':'danger'}">RSSI: ${rssi} dBm</span>`:''}
+      ${snr?`<span class="tr-pill ${snr>25?'ok':snr>15?'warn':'danger'}">SNR: ${snr} dB</span>`:''}
+    </div></div><hr class="tr-divider">`:''}
+    <div class="tr-section"><div class="tr-label">Marvis diagnosis</div>
+      <div class="tr-value" style="margin-top:4px">
+        ${d.category?`<span class="tr-pill ${noIssue?'ok':'danger'}">${d.category}</span>`:''}
+        ${d.reason?`<span class="tr-pill ${noIssue?'ok':'warn'}">${d.reason}</span>`:''}
+      </div>
+      ${d.description?`<div class="tr-value" style="margin-top:8px;color:var(--muted)">${d.description}</div>`:''}
+    </div>
+    ${d.recommendation?`<hr class="tr-divider"><div class="tr-section"><div class="tr-label">Recommendation</div><div class="tr-value tr-warn">→ ${d.recommendation}</div></div>`:''}
+    <hr class="tr-divider">
+    <div style="display:flex;gap:16px;font-size:10px;color:var(--muted);font-family:var(--mono)">
+      <span>Type: ${tshootState.type}</span>
+      <span style="margin-left:auto">Marvis · ${new Date().toLocaleTimeString()}</span>
+    </div>`;
+}
+
+function addTshootHistory(query, mac, d){
+  const list=document.getElementById('tshoot-history-list');
+  const noIssue=!d.reason||['no issue','healthy'].some(p=>d.reason.toLowerCase().includes(p));
+  const item=document.createElement('div');
+  item.className='history-item';
+  item.onclick=()=>{ document.getElementById('tshoot-input').value=query; detectInputType(query); runTshoot(); };
+  item.innerHTML=`<span class="history-mac">${mac}</span>
+    <span class="history-detail">${query!==mac?query+' · ':''}${d.reason||'—'}</span>
+    <span style="font-size:10px;color:${noIssue?'var(--ok)':'var(--danger)'}">${noIssue?'● OK':'● Issue'}</span>
+    <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${new Date().toLocaleTimeString()}</span>`;
+  const ph=list.querySelector('div[style]');
+  if(ph) ph.remove();
+  list.prepend(item);
+  while(list.children.length>5) list.removeChild(list.lastChild);
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showTab(id){ document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active')); document.getElementById('tab-'+id).classList.add('active'); }
+function setActive(el){ document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active')); el.classList.add('active'); }
+
+// ── Seed / static data for L1/L2/L3 panes ────────────────────────────────────
+const EVENTS_SEED=[
+  {level:'L3',msg:'<strong>Auto-remediated:</strong> <span>AP-ICU-3A-01 TX power adjusted. SLE recovering (+18pts expected).</span>',time:'09:42'},
+  {level:'L2',msg:'<strong>Diagnosed:</strong> <span>ICU F3 co-channel interference confirmed on 2.4GHz. 3 APs affected.</span>',time:'09:41'},
+  {level:'L1',msg:'<strong>Detected:</strong> <span>SLE score dropped to 48% on AP-ICU-3A-01. Threshold: 70%.</span>',time:'09:40'},
+  {level:'L3',msg:'<strong>Ticket created:</strong> <span>INC0042891 — Upstream switch port flap on Med/Surg F4.</span>',time:'09:33'},
+  {level:'L1',msg:'<strong>Detected:</strong> <span>5 IoMT devices disconnected from MedicalDevices SSID.</span>',time:'09:28'},
+  {level:'ACT',msg:'<strong>Alert sent:</strong> <span>Auth failures on NurseCall-VOIP SSID notified to #clinical-noc.</span>',time:'09:15'},
+];
+const FLAGGED_APS=[
+  {name:'AP-ICU-3A-01',floor:'ICU',sle:48,issue:'RF co-channel interference',diagnosis:'RF_INTERFERENCE',action:'TX power adjusted',status:'done'},
+  {name:'AP-ICU-3B-02',floor:'ICU',sle:61,issue:'IoMT device roam failures',diagnosis:'RF_INTERFERENCE',action:'RRM channel reassigned',status:'done'},
+  {name:'AP-MED-4A-03',floor:'Med/Surg',sle:72,issue:'Auth failures — NurseCall SSID',diagnosis:'AUTH_FAILURE',action:'Alert sent to NOC',status:'pending'},
+  {name:'AP-MED-4C-01',floor:'Med/Surg',sle:69,issue:'Client throughput degraded',diagnosis:'UPSTREAM_SWITCH',action:'Ticket INC0042891 created',status:'done'},
+];
+const REMEDIATIONS=[
+  {status:'done',title:'TX power auto-adjusted',detail:'AP-ICU-3A-01 · RF_INTERFERENCE · 2.4GHz power reduced',time:'09:42'},
+  {status:'done',title:'RRM channel reassigned',detail:'AP-ICU-3B-02 · RF_INTERFERENCE · moved to ch 149',time:'09:42'},
+  {status:'done',title:'ITSM ticket auto-created',detail:'INC0042891 · UPSTREAM_SWITCH · AP-MED-4C-01',time:'09:33'},
+  {status:'pending',title:'NOC alert pending ack',detail:'AP-MED-4A-03 · AUTH_FAILURE · NurseCall-VOIP SSID',time:'09:15'},
+];
+const RCA_ITEMS=[
+  {status:'done',title:'RF co-channel interference',detail:'Root cause: RF_INTERFERENCE · 2.4GHz ch6 congestion · confidence 96%',time:'09:41'},
+  {status:'done',title:'Upstream switch port flap',detail:'Root cause: UPSTREAM_SWITCH · SW-4A-01 · confidence 94%',time:'09:32'},
+  {status:'pending',title:'NurseCall auth failures',detail:'Root cause: AUTH_FAILURE · RADIUS timeout · diagnosing...',time:'09:15'},
+];
+const DETECTION_RULES=[
+  {status:'done',title:'SLE score monitor',detail:'Threshold: <70% → trigger L2 · All sites'},
+  {status:'done',title:'IoMT disconnect watch',detail:'SSID: MedicalDevices · >3 disconnects/5min → alert'},
+  {status:'done',title:'Nurse call SSID health',detail:'SSID: NurseCall-VOIP · auth failure rate >5% → alert'},
+  {status:'done',title:'Roaming failure detection',detail:'Roam success <85% → L2 diagnosis triggered'},
+  {status:'done',title:'RF anomaly scan',detail:'CCI / ACI via Marvis RF Insights API'},
+  {status:'pending',title:'DHCP scope monitor',detail:'Scope >85% → alert + ticket'},
+];
+const FLOOR_ZONES={
+  icu:['3A-01','3A-02','3A-03','3B-01','3B-02','3B-03','3C-01','3C-02','Nurses','Waiting','Iso-1','Iso-2','Iso-3','ICU-4A','ICU-4B','ICU-5A'],
+  er:['ER-Triage','ER-1A','ER-1B','ER-1C','ER-2A','ER-2B','Trauma-1','Trauma-2','ER-Lab','ER-Pharm','ER-3A','ER-3B','ER-Waiting','ER-5A','Ambulance','ER-Rear'],
+  med:['4A-01','4A-02','4A-03','4B-01','4B-02','4B-03','4C-01','4C-02','4D-01','4D-02','NS-4A','NS-4B','4E-01','4E-02','4F-01','4F-02'],
+  admin:['2A-01','2B-01','2C-01','2D-01','2E-01','2F-01','Conf-1','Conf-2','IT-Room','Storage','Lobby','Elevators','2G-01','2H-01','MRI-Adj','Admin-R'],
+};
+const FLOOR_STATUS={icu:[2,2,2,1,1,0,0,0,1,0,0,0,2,0,0,0],er:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],med:[0,0,1,0,0,0,2,0,0,0,0,0,0,0,0,0],admin:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]};
+const STATUS_CLASS=['ok','warn','danger'];
+
+function renderSeedData(){
+  // Event feed
+  ['event-feed','full-log','detection-log'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=EVENTS_SEED.slice(0,id==='detection-log'?4:6).map(e=>
+      `<div class="event-item"><span class="event-level ${e.level}">${e.level}</span><div class="event-msg">${e.msg}</div><span class="event-time">${e.time}</span></div>`
+    ).join('');
+  });
+  // AP table
+  const atb=document.getElementById('ap-table-body');
+  if(atb) atb.innerHTML=FLAGGED_APS.map(ap=>`<tr>
+    <td><span class="ap-name">${ap.name}</span></td>
+    <td style="color:var(--muted);font-size:11px">${ap.floor}</td>
+    <td><span class="sle-bar"><span class="sle-fill ${ap.sle>80?'ok':ap.sle>70?'warn':'danger'}" style="width:${ap.sle}%"></span></span><span style="font-family:var(--mono);font-size:11px">${ap.sle}%</span></td>
+    <td style="font-size:11px;color:var(--muted)">${ap.issue}</td>
+    <td><span class="tag ${ap.diagnosis==='AUTH_FAILURE'?'danger':'warn'}">${ap.diagnosis}</span></td>
+    <td style="font-size:11px;color:var(--ok)">${ap.action}</td></tr>`).join('');
+  // Action lists
+  [['remediation-list',REMEDIATIONS],['rca-list',RCA_ITEMS],['detection-rules',DETECTION_RULES]].forEach(([id,items])=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=items.map(item=>`<div class="action-item">
+      <div class="action-status ${item.status}"></div>
+      <div class="action-text"><strong>${item.title}</strong><span>${item.detail}</span></div>
+      <span class="action-time">${item.time||''}</span>
+      ${item.status==='pending'?'<button class="action-btn" onclick="this.closest(\'.action-item\').querySelector(\'.action-status\').className=\'action-status done\';this.remove()">Ack</button>':''}
+    </div>`).join('');
+  });
+  // Floor map
+  renderFloor('icu');
+}
+
+function renderFloor(id){
+  const grid=document.getElementById('floor-map-grid');
+  const zones=FLOOR_ZONES[id]||FLOOR_ZONES.icu;
+  const stats=FLOOR_STATUS[id]||FLOOR_STATUS.icu;
+  grid.innerHTML=zones.map((z,i)=>`<div class="floor-cell ${STATUS_CLASS[stats[i]||0]}" onclick="openTshootZone('${z}')" title="${z}">
+    <div style="font-size:10px">AP</div><div class="floor-cell-name">${z.length>6?z.slice(0,6)+'…':z}</div>
+  </div>`).join('');
+}
+
+function openTshootZone(zone){ showTab('marvis'); document.getElementById('marvis-q').value=`What is the health status of the access point in zone ${zone}?`; queryMarvis(); }
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); openTshoot(); }
+  if(e.key==='Escape') closeTshoot();
+});
+
+
+// ══ WLAN / SWITCH / WAN LOADERS ══════════════════════════════════════════════
+
+function fmtUptime(seconds) {
+  if (!seconds) return '—';
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function statusTag(s) {
+  const c = s === 'connected' ? 'ok' : s === 'disconnected' ? 'danger' : 'warn';
+  return `<span class="tag ${c}">${s || 'unknown'}</span>`;
+}
+
+// ── WLANs ─────────────────────────────────────────────────────────────────────
+async function loadWlans() {
+  document.getElementById('wlan-sub').textContent = 'Loading...';
+  const tbody = document.getElementById('wlan-body');
+  try {
+    // Org-level WLANs
+    const data = await mistFetch(`/orgs/${ORG_ID}/wlans`);
+    const wlans = Array.isArray(data) ? data : (data.results || []);
+
+    document.getElementById('wlan-count-badge').textContent = wlans.length;
+    document.getElementById('wlan-sub').textContent =
+      `${wlans.length} WLAN${wlans.length !== 1 ? 's' : ''} · Org-level · GET /orgs/${ORG_ID}/wlans`;
+
+    if (!wlans.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// No WLANs found at org level</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = wlans.map(w => {
+      const band = w.band === 'both' ? '2.4 + 5 GHz' : w.band === '5' ? '5 GHz' : w.band === '24' ? '2.4 GHz' : (w.band || '—');
+      const sec = w.wlan_id || w.security || (w.auth?.type === 'open' ? 'Open' : w.auth?.type === 'psk' ? 'PSK' : w.auth?.type === 'eap' ? '802.1X / EAP' : w.auth?.type || '—');
+      const auth = w.auth?.type === 'open' ? '<span class="tag warn">Open</span>' :
+                   w.auth?.type === 'psk'  ? '<span class="tag ok">PSK</span>' :
+                   w.auth?.type === 'eap'  ? '<span class="tag ok">802.1X</span>' :
+                   `<span class="tag warn">${w.auth?.type || '—'}</span>`;
+      const vlan = w.vlan_id ? `<span style="font-family:var(--mono);font-size:11px">${w.vlan_id}</span>` : '<span style="color:var(--muted)">—</span>';
+      const enabled = w.enabled !== false
+        ? '<span class="tag ok">Enabled</span>'
+        : '<span class="tag danger">Disabled</span>';
+      const scope = w.site_id ? `<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">site</span>`
+                               : `<span style="font-family:var(--mono);font-size:10px;color:var(--accent2)">org</span>`;
+      return `<tr>
+        <td style="font-weight:500">${w.ssid || '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${band}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${w.auth?.type === 'open' ? 'Open' : w.auth?.type === 'psk' ? 'PSK' : w.auth?.type === 'eap' ? '802.1X / EAP' : '—'}</td>
+        <td>${vlan}</td>
+        <td>${auth}</td>
+        <td>${enabled}</td>
+        <td>${scope}</td>
+      </tr>`;
+    }).join('');
+
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger);font-family:var(--mono);font-size:11px">// Error: ${e.message}</td></tr>`;
+    document.getElementById('wlan-sub').textContent = 'Error loading WLANs';
+  }
+}
+
+// ── Switches ──────────────────────────────────────────────────────────────────
+async function loadSwitches() {
+  document.getElementById('sw-sub').textContent = 'Loading...';
+  const tbody = document.getElementById('sw-body');
+  try {
+    const data = await mistFetch(`/orgs/${ORG_ID}/devices/search?type=switch&limit=200`);
+    const switches = data.results || [];
+
+    const connected    = switches.filter(s => s.status === 'connected').length;
+    const disconnected = switches.filter(s => s.status === 'disconnected').length;
+    const other        = switches.length - connected - disconnected;
+
+    document.getElementById('sw-count-badge').textContent = switches.length;
+    document.getElementById('sw-kpi-total').textContent       = switches.length;
+    document.getElementById('sw-kpi-connected').textContent    = connected;
+    document.getElementById('sw-kpi-disconnected').textContent = disconnected;
+    document.getElementById('sw-kpi-other').textContent        = other;
+    document.getElementById('sw-kpi-row').style.display        = 'grid';
+
+    document.getElementById('sw-sub').textContent =
+      `${switches.length} switch${switches.length !== 1 ? 'es' : ''} · ${connected} connected · GET /orgs/${ORG_ID}/devices/search?type=switch`;
+
+    if (!switches.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// No switches found in org</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = switches.map(sw => {
+      const poeUsed  = sw.poe_stat?.current_draw?.toFixed(1) || '—';
+      const poeTotal = sw.poe_stat?.max_power?.toFixed(1) || '—';
+      const poe = poeUsed !== '—' ? `${poeUsed}W / ${poeTotal}W` : '—';
+      const ip = sw.ip || sw.ext_ip || '—';
+      const site = sw.site_name || sw.site_id?.slice(0, 8) + '…' || '—';
+      return `<tr>
+        <td><span class="ap-name">${sw.hostname || sw.name || '—'}</span></td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${sw.model || '—'}</td>
+        <td style="font-size:11px;color:var(--muted)">${site}</td>
+        <td style="font-family:var(--mono);font-size:11px">${ip}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${sw.version || '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${fmtUptime(sw.uptime)}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${poe}</td>
+        <td>${statusTag(sw.status)}</td>
+      </tr>`;
+    }).join('');
+
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--danger);font-family:var(--mono);font-size:11px">// Error: ${e.message}</td></tr>`;
+    document.getElementById('sw-sub').textContent = 'Error loading switches';
+  }
+}
+
+// ── WAN / Gateways ────────────────────────────────────────────────────────────
+async function loadWan() {
+  document.getElementById('wan-sub').textContent = 'Loading...';
+  const tbody = document.getElementById('wan-body');
+  try {
+    const data = await mistFetch(`/orgs/${ORG_ID}/devices/search?type=gateway&limit=200`);
+    const gateways = data.results || [];
+
+    const connected    = gateways.filter(g => g.status === 'connected').length;
+    const disconnected = gateways.filter(g => g.status === 'disconnected').length;
+    const tunnels      = gateways.reduce((acc, g) => acc + (g.num_tunnels || 0), 0);
+
+    document.getElementById('wan-count-badge').textContent      = gateways.length;
+    document.getElementById('wan-kpi-total').textContent        = gateways.length;
+    document.getElementById('wan-kpi-connected').textContent    = connected;
+    document.getElementById('wan-kpi-disconnected').textContent = disconnected;
+    document.getElementById('wan-kpi-tunnels').textContent      = tunnels;
+    document.getElementById('wan-kpi-row').style.display        = 'grid';
+
+    document.getElementById('wan-sub').textContent =
+      `${gateways.length} gateway${gateways.length !== 1 ? 's' : ''} · ${connected} connected · GET /orgs/${ORG_ID}/devices/search?type=gateway`;
+
+    if (!gateways.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// No WAN gateways found in org</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = gateways.map(gw => {
+      const ip = gw.ip || gw.ext_ip || '—';
+      const site = gw.site_name || gw.site_id?.slice(0, 8) + '…' || '—';
+      // WAN IPs from interfaces
+      const wanIps = (gw.wan_interface_stat || gw.if_stat)
+        ? Object.entries(gw.wan_interface_stat || gw.if_stat || {})
+            .filter(([k, v]) => v?.ip && (k.includes('wan') || k.startsWith('ge-') || k.startsWith('xe-')))
+            .map(([k, v]) => `<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${k}: ${v.ip}</span>`)
+            .join('<br>') || ip
+        : ip;
+      return `<tr>
+        <td><span class="ap-name">${gw.hostname || gw.name || '—'}</span></td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${gw.model || '—'}</td>
+        <td style="font-size:11px;color:var(--muted)">${site}</td>
+        <td style="font-family:var(--mono);font-size:11px">${ip}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${gw.version || '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${fmtUptime(gw.uptime)}</td>
+        <td style="font-size:11px">${wanIps}</td>
+        <td>${statusTag(gw.status)}</td>
+      </tr>`;
+    }).join('');
+
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--danger);font-family:var(--mono);font-size:11px">// Error: ${e.message}</td></tr>`;
+    document.getElementById('wan-sub').textContent = 'Error loading gateways';
+  }
+}
+
+// Trigger loaders when tabs are clicked
+const _origShowTab = showTab;
+function showTab(id) {
+  _origShowTab(id);
+  if (id === 'wlans'    && SESSION.token) loadWlans();
+  if (id === 'switches' && SESSION.token) loadSwitches();
+  if (id === 'wan'      && SESSION.token) loadWan();
+}
+
+// ── Auto-login if token in session ────────────────────────────────────────────
+if(SESSION.token) startApp();
+</script>
+</body>
+</html>

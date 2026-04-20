@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "type": "http",
+      "url": "https://workflows.thewifijedi.com/mcp-server/http",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYjliYTc2ZS04YjY5LTQ4OWEtYmRjNC04MzVlY2RjYWU3MTkiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjQxZDQzNTM0LTRhNjItNDQ3NS1iZDlhLTRjMDUyYmE4Nzk5ZSIsImlhdCI6MTc3NjY0NDA3NX0.8gtHtWZsBrPwPxoQ8hgdCtNaITjFJt6CZ83R3gnVcOo"
+      }
+    }
+  }
+}
