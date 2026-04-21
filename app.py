@@ -113,12 +113,19 @@ def _start_ws_server():
         return
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    _ws_loop = loop
 
     async def _serve():
-        async with _ws_serve(_ws_handler, '0.0.0.0', 8765):
-            log.info('WebSocket server listening on :8765')
-            await asyncio.Future()
+        try:
+            async with _ws_serve(_ws_handler, '0.0.0.0', 8765):
+                log.info('WebSocket server listening on :8765')
+                global _ws_loop
+                _ws_loop = loop
+                await asyncio.Future()
+        except OSError as e:
+            if e.errno == 98:  # EADDRINUSE — another worker already owns the port
+                log.info('WebSocket port 8765 already bound by another worker — WS broadcast disabled in this worker')
+            else:
+                log.error('WebSocket server failed: %s', e)
 
     loop.run_until_complete(_serve())
 
@@ -850,12 +857,17 @@ def _sd_collect_telemetry(org_id: str) -> dict:
                          params={'status': 'disconnected', 'limit': 50})
         data = r.json() if r.status_code == 200 else {}
         results = data.get('results', [])
-        # Mist device search returns mac-keyed results; normalise field names
+        # Mist device search: normalise field names and last_seen epoch
         for dev in results:
             if not dev.get('id'):
                 dev['id'] = dev.get('mac')
             if isinstance(dev.get('hostname'), list):
                 dev['hostname'] = dev['hostname'][0] if dev['hostname'] else dev.get('last_hostname', '—')
+            ts = dev.get('last_seen')
+            if isinstance(ts, (int, float)) and ts > 0:
+                dev['_last_seen_str'] = datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M')
+            else:
+                dev['_last_seen_str'] = 'unknown'
         telemetry['offline_devices'] = results
     except Exception as e:
         telemetry['offline_devices'] = []
@@ -891,7 +903,7 @@ def _sd_detect_issues(telemetry: dict) -> list:
             'device_name': hostname,
             'device_type': dev.get('type', 'ap'),
             'model': dev.get('model', '—'),
-            'detail': f"{dev.get('type','AP').upper()} offline: {hostname} ({dev.get('model','?')}) — last seen {dev.get('last_seen','unknown')}",
+            'detail': f"{dev.get('type','AP').upper()} offline: {hostname} ({dev.get('model','?')}) — last seen {dev.get('_last_seen_str','unknown')}",
             'raw': {k: v for k, v in dev.items() if k not in ('wlans',)},
         })
 
@@ -982,26 +994,35 @@ Respond with valid JSON only."""
         return json.loads(text)
     except Exception as e:
         log.warning('Claude diagnosis failed: %s', e)
+        err_str = str(e)
+        credits_low = 'credit balance is too low' in err_str or 'insufficient_quota' in err_str
+        fallback_diags = []
+        for iss in issues:
+            remediable = iss['type'] in ('DEVICE_OFFLINE', 'AP_OFFLINE')
+            fallback_diags.append({
+                'issue_id': iss['id'],
+                'root_cause': 'AP_OFFLINE' if iss['type'] == 'DEVICE_OFFLINE' else iss['type'],
+                'confidence': 70,
+                'explanation': iss['detail'],
+                'recommended_action': 'Reboot AP to restore connectivity' if remediable else 'Manual review required',
+                'auto_remediable': remediable,
+            })
+        if credits_low:
+            summary = f'{len(issues)} issues detected. ⚠ Anthropic API credits exhausted — add credits at console.anthropic.com to enable AI diagnosis. Applying rule-based remediations.'
+        else:
+            summary = f'{len(issues)} issues detected. AI diagnosis unavailable ({type(e).__name__}) — applying rule-based fallback.'
         return {
-            'diagnoses': [
-                {
-                    'issue_id': iss['id'],
-                    'root_cause': iss['type'],
-                    'confidence': 50,
-                    'explanation': iss['detail'],
-                    'recommended_action': 'Manual review required',
-                    'auto_remediable': False,
-                }
-                for iss in issues
-            ],
-            'summary': f'{len(issues)} issues detected. AI diagnosis unavailable: {e}',
-            'critical_count': sum(1 for i in issues if i.get('severity') == 'critical'),
+            'diagnoses': fallback_diags,
+            'summary': summary,
+            'critical_count': sum(1 for i in issues if i.get('severity') in ('critical', 'high')),
+            'ai_available': False,
         }
 
 
-def _sd_apply_remediations(diagnoses: list, dry_run: bool = True) -> list:
+def _sd_apply_remediations(diagnoses: list, dry_run: bool = True, issues_by_id: dict = None) -> list:
     """L3: Execute remediations for auto_remediable issues."""
     actions = []
+    issues_by_id = issues_by_id or {}
 
     REMEDIATION_MAP = {
         'AP_OFFLINE': _remediate_ap_offline,
@@ -1021,9 +1042,19 @@ def _sd_apply_remediations(diagnoses: list, dry_run: bool = True) -> list:
             })
             continue
 
+        # Enrich diagnosis with original issue data so remediators can access device_id/site_id
+        orig = issues_by_id.get(diag.get('issue_id'), {})
+        enriched = {
+            **diag,
+            'device_id': orig.get('device_id'),
+            'site_id':   orig.get('site_id'),
+            'raw':       orig.get('raw', {}),
+            'device_name': orig.get('device_name', '?'),
+        }
+
         fn = REMEDIATION_MAP.get(diag.get('root_cause'))
         if fn:
-            result = fn(diag, dry_run=dry_run)
+            result = fn(enriched, dry_run=dry_run)
         else:
             result = {
                 'action': 'ALERT_SENT',
@@ -1038,16 +1069,29 @@ def _sd_apply_remediations(diagnoses: list, dry_run: bool = True) -> list:
 
 
 def _remediate_ap_offline(diag: dict, dry_run: bool = True) -> dict:
-    device_id = diag.get('raw', {}).get('id') or diag.get('raw', {}).get('device_id')
-    site_id = diag.get('raw', {}).get('site_id')
+    # Prefer top-level enriched fields, fall back to raw dict
+    device_id = (diag.get('device_id')
+                 or diag.get('raw', {}).get('id')
+                 or diag.get('raw', {}).get('mac'))
+    site_id = (diag.get('site_id')
+               or diag.get('raw', {}).get('site_id'))
+    device_name = diag.get('device_name', device_id or '?')
 
-    if dry_run or not (device_id and site_id):
+    if dry_run:
         return {
-            'action': 'REBOOT_QUEUED' if not dry_run else 'DRY_RUN_REBOOT',
+            'action': 'DRY_RUN_REBOOT',
             'device_id': device_id,
+            'device_name': device_name,
             'site_id': site_id,
-            'dry_run': dry_run,
-            'message': f"{'[DRY RUN] ' if dry_run else ''}Reboot AP {device_id or '?'}",
+            'dry_run': True,
+            'message': f"[DRY RUN] Would reboot {device_name} ({device_id or '?'}) — site {site_id or '?'}",
+        }
+
+    if not (device_id and site_id):
+        return {
+            'action': 'SKIPPED',
+            'reason': f"Missing device_id or site_id for {device_name}",
+            'dry_run': False,
         }
 
     try:
@@ -1055,13 +1099,14 @@ def _remediate_ap_offline(diag: dict, dry_run: bool = True) -> dict:
         return {
             'action': 'REBOOT_SENT',
             'device_id': device_id,
+            'device_name': device_name,
             'site_id': site_id,
             'dry_run': False,
             'http_status': r.status_code,
-            'message': f"Reboot command sent to {device_id}",
+            'message': f"Reboot command sent to {device_name} ({device_id})",
         }
     except Exception as e:
-        return {'action': 'REBOOT_FAILED', 'error': str(e), 'dry_run': False}
+        return {'action': 'REBOOT_FAILED', 'device_id': device_id, 'error': str(e), 'dry_run': False}
 
 
 def _remediate_rf_interference(diag: dict, dry_run: bool = True) -> dict:
@@ -1132,12 +1177,15 @@ def self_driving_remediate(org_id):
     body = request.get_json(silent=True) or {}
     diagnoses = body.get('diagnoses', [])
     dry_run = body.get('dry_run', True)
+    # Caller may pass original issues so remediators can resolve device_id/site_id
+    issues_list = body.get('issues', [])
+    issues_by_id = {iss['id']: iss for iss in issues_list}
 
     if not diagnoses:
         return jsonify({'error': 'diagnoses required — run /diagnose first'}), 400
 
     t0 = time.time()
-    actions = _sd_apply_remediations(diagnoses, dry_run=dry_run)
+    actions = _sd_apply_remediations(diagnoses, dry_run=dry_run, issues_by_id=issues_by_id)
 
     taken = [a for a in actions if a.get('action') not in ('SKIPPED',)]
     skipped = [a for a in actions if a.get('action') == 'SKIPPED']
@@ -1165,13 +1213,14 @@ def self_driving_pipeline(org_id):
     # L1
     telemetry = _sd_collect_telemetry(org_id)
     issues = _sd_detect_issues(telemetry)
+    issues_by_id = {iss['id']: iss for iss in issues}
 
     # L2
     diagnosis = _sd_claude_diagnose(issues, telemetry)
     diagnoses = diagnosis.get('diagnoses', [])
 
     # L3
-    actions = _sd_apply_remediations(diagnoses, dry_run=dry_run)
+    actions = _sd_apply_remediations(diagnoses, dry_run=dry_run, issues_by_id=issues_by_id)
 
     elapsed = round((time.time() - t_start) * 1000)
     result = {
@@ -1180,6 +1229,7 @@ def self_driving_pipeline(org_id):
         'completed_at': int(time.time()),
         'total_duration_ms': elapsed,
         'dry_run': dry_run,
+        'ai_available': diagnosis.get('ai_available', True),
         'l1_detection': {
             'issues_found': len(issues),
             'issues': issues,

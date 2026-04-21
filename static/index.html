@@ -2486,8 +2486,11 @@ function renderSdResult(d) {
   const RC_CLS = { RF_INTERFERENCE:'warn', AP_OFFLINE:'danger', AUTH_FAILURE:'danger',
     DHCP_ISSUE:'warn', UPSTREAM_SWITCH:'danger', WAN_BROWNOUT:'danger',
     FIRMWARE_BUG:'warn', CONFIG_ERROR:'warn', DEVICE_OFFLINE:'danger', UNKNOWN:'info' };
+  const aiWarning = d.ai_available === false
+    ? '<div style="font-family:var(--mono);font-size:10px;color:var(--warn);background:rgba(232,151,58,0.07);border:1px solid rgba(232,151,58,0.2);padding:6px 10px;margin-bottom:8px">⚠ AI diagnosis offline — rule-based fallback active. Add Anthropic credits to enable Claude.</div>'
+    : '';
   document.getElementById('sd-l2-summary').innerHTML =
-    '<span style="color:var(--accent2)">' + (l2.summary || '—') + '</span>';
+    aiWarning + '<span style="color:var(--accent2)">' + (l2.summary || '—') + '</span>';
   document.getElementById('sd-l2-body').innerHTML = !l2.diagnoses.length ? '' :
     l2.diagnoses.map(diag => {
       const cls  = RC_CLS[diag.root_cause] || 'info';
