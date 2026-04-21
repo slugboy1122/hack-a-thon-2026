@@ -833,7 +833,9 @@ def n8n_action():
 # ============================================================================
 
 def _sd_collect_telemetry(org_id: str) -> dict:
-    """Pull alarms, device health, and site SLE data from Mist."""
+    """Pull live device stats per site (APs, switches, gateways) plus alarms."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     telemetry: dict = {'org_id': org_id, 'collected_at': int(time.time())}
 
     # Alarms
@@ -841,87 +843,204 @@ def _sd_collect_telemetry(org_id: str) -> dict:
         r = mist_request('GET', f'/orgs/{org_id}/alarms', params={'limit': 100})
         data = r.json() if r.status_code == 200 else {}
         telemetry['alarms'] = data.get('results', data) if isinstance(data, dict) else data
-    except Exception as e:
+    except Exception:
         telemetry['alarms'] = []
-        telemetry['alarms_error'] = str(e)
 
-    # Sites
+    # Sites list
+    sites = []
     try:
         r = mist_request('GET', f'/orgs/{org_id}/sites')
-        sites = r.json() if r.status_code == 200 else []
-        telemetry['sites'] = sites if isinstance(sites, list) else sites.get('results', [])
-    except Exception as e:
+        raw = r.json() if r.status_code == 200 else []
+        sites = raw if isinstance(raw, list) else raw.get('results', [])
+        telemetry['sites'] = sites
+    except Exception:
         telemetry['sites'] = []
-        telemetry['sites_error'] = str(e)
 
-    # Org device stats (aggregate counts)
+    # Org aggregate stats (for cluster-level health flags)
     try:
         r = mist_request('GET', f'/orgs/{org_id}/stats')
         telemetry['org_stats'] = r.json() if r.status_code == 200 else {}
-    except Exception as e:
+    except Exception:
         telemetry['org_stats'] = {}
 
-    # Offline / troubled devices (search API uses 'disconnected' status)
-    try:
-        r = mist_request('GET', f'/orgs/{org_id}/devices/search',
-                         params={'status': 'disconnected', 'limit': 50})
-        data = r.json() if r.status_code == 200 else {}
-        results = data.get('results', [])
-        # Mist device search: normalise field names and last_seen epoch
-        for dev in results:
-            if not dev.get('id'):
-                dev['id'] = dev.get('mac')
-            if isinstance(dev.get('hostname'), list):
-                dev['hostname'] = dev['hostname'][0] if dev['hostname'] else dev.get('last_hostname', '—')
+    # Per-site live device stats — /sites/:id/stats/devices?type=ap|switch|gateway
+    all_aps: list = []
+    all_switches: list = []
+    all_gateways: list = []
+
+    def _fetch_site(site):
+        sid = site.get('id')
+        sname = site.get('name', '—')
+        if not sid:
+            return [], [], []
+        aps, switches, gateways = [], [], []
+        for dtype, bucket in [('ap', aps), ('switch', switches), ('gateway', gateways)]:
+            try:
+                r = mist_request('GET', f'/sites/{sid}/stats/devices', params={'type': dtype})
+                devs = r.json() if r.status_code == 200 else []
+                if isinstance(devs, list):
+                    for d in devs:
+                        d['_site_id'] = sid
+                        d['_site_name'] = sname
+                    bucket.extend(devs)
+            except Exception:
+                pass
+        return aps, switches, gateways
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(_fetch_site, s): s for s in sites}
+        for fut in as_completed(futures):
+            try:
+                aps, switches, gateways = fut.result()
+                all_aps.extend(aps)
+                all_switches.extend(switches)
+                all_gateways.extend(gateways)
+            except Exception:
+                pass
+
+    telemetry['aps'] = all_aps
+    telemetry['switches'] = all_switches
+    telemetry['gateways'] = all_gateways
+
+    # Derive offline_devices from real live status (replaces stale search index)
+    offline = []
+    for dev in all_aps + all_switches + all_gateways:
+        if dev.get('status') == 'disconnected':
             ts = dev.get('last_seen')
-            if isinstance(ts, (int, float)) and ts > 0:
-                dev['_last_seen_str'] = datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M')
-            else:
-                dev['_last_seen_str'] = 'unknown'
-        telemetry['offline_devices'] = results
-    except Exception as e:
-        telemetry['offline_devices'] = []
+            dev['_last_seen_str'] = (
+                datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M')
+                if isinstance(ts, (int, float)) and ts > 0 else 'unknown'
+            )
+            offline.append(dev)
+    telemetry['offline_devices'] = offline
 
     # Recent audit logs
     try:
         r = mist_request('GET', f'/orgs/{org_id}/logs', params={'limit': 20})
         data = r.json() if r.status_code == 200 else {}
         telemetry['audit_logs'] = data.get('results', [])
-    except Exception as e:
+    except Exception:
         telemetry['audit_logs'] = []
 
     return telemetry
 
 
 def _sd_detect_issues(telemetry: dict) -> list:
-    """L1: Classify raw telemetry into structured issue objects."""
+    """L1: Detect issues from live per-site device stats, alarms, and org health."""
     issues = []
+    seen_ids: set = set()
 
-    # Offline device issues
+    def _add(issue):
+        if issue['id'] not in seen_ids:
+            seen_ids.add(issue['id'])
+            issues.append(issue)
+
+    # ── Offline devices (APs, switches, gateways from live stats) ────────────────
     for dev in telemetry.get('offline_devices', []):
-        mac = dev.get('id') or dev.get('mac', '?')
-        raw_host = dev.get('last_hostname') or dev.get('hostname') or dev.get('name') or mac
-        hostname = raw_host[0] if isinstance(raw_host, list) else str(raw_host)
-        issues.append({
-            'id': f"offline-{mac}",
+        device_id = dev.get('id') or dev.get('mac', '?')
+        hostname = dev.get('hostname') or dev.get('name') or device_id
+        if isinstance(hostname, list):
+            hostname = hostname[0] if hostname else device_id
+        dtype = dev.get('type', 'ap')
+        _add({
+            'id': f"offline-{device_id}",
             'level': 'L1',
             'type': 'DEVICE_OFFLINE',
             'severity': 'high',
-            'site_id': dev.get('site_id'),
-            'site_name': dev.get('site_name', '—'),
-            'device_id': mac,
+            'site_id': dev.get('site_id') or dev.get('_site_id'),
+            'site_name': dev.get('_site_name') or dev.get('site_name', '—'),
+            'device_id': device_id,
             'device_name': hostname,
-            'device_type': dev.get('type', 'ap'),
+            'device_type': dtype,
             'model': dev.get('model', '—'),
-            'detail': f"{dev.get('type','AP').upper()} offline: {hostname} ({dev.get('model','?')}) — last seen {dev.get('_last_seen_str','unknown')}",
-            'raw': {k: v for k, v in dev.items() if k not in ('wlans',)},
+            'detail': f"{dtype.upper()} offline: {hostname} ({dev.get('model','?')}) — last seen {dev.get('_last_seen_str','unknown')}",
+            'raw': {k: v for k, v in dev.items() if k not in ('wlans', 'port_stat')},
         })
 
-    # Alarm-based issues
+    # ── RF issues from live AP radio stats ───────────────────────────────────────
+    for ap in telemetry.get('aps', []):
+        if ap.get('status') != 'connected':
+            continue
+        device_id = ap.get('id') or ap.get('mac', '?')
+        hostname = ap.get('hostname') or ap.get('name') or device_id
+        site_id = ap.get('site_id') or ap.get('_site_id')
+        site_name = ap.get('_site_name', '—')
+        rs = ap.get('radio_stat') or {}
+
+        for band_key, band_label in [('band_6', '6 GHz'), ('band_5', '5 GHz'), ('band_24', '2.4 GHz')]:
+            band = rs.get(band_key) or {}
+            if not band:
+                continue
+            noise = band.get('noise_floor')
+            util = band.get('util') or 0
+            ch = band.get('channel', '?')
+
+            if noise is not None and noise > -85:
+                _add({
+                    'id': f"rf-noise-{device_id}-{band_key}",
+                    'level': 'L1', 'type': 'RF_INTERFERENCE', 'severity': 'medium',
+                    'site_id': site_id, 'site_name': site_name,
+                    'device_id': device_id, 'device_name': hostname,
+                    'device_type': 'ap', 'model': ap.get('model', '—'),
+                    'detail': f"High noise floor {noise} dBm on {band_label} ch{ch} at AP {hostname} — RF interference likely",
+                    'raw': {'band': band_key, 'noise_floor': noise, 'channel': ch, 'util': util},
+                })
+            elif util > 80:
+                _add({
+                    'id': f"rf-util-{device_id}-{band_key}",
+                    'level': 'L1', 'type': 'RF_INTERFERENCE', 'severity': 'medium',
+                    'site_id': site_id, 'site_name': site_name,
+                    'device_id': device_id, 'device_name': hostname,
+                    'device_type': 'ap', 'model': ap.get('model', '—'),
+                    'detail': f"Channel utilization {util}% on {band_label} ch{ch} at AP {hostname} — capacity issue",
+                    'raw': {'band': band_key, 'util': util, 'channel': ch, 'noise_floor': noise},
+                })
+
+    # ── WAN interface down on connected gateways ─────────────────────────────────
+    for gw in telemetry.get('gateways', []):
+        if gw.get('status') != 'connected':
+            continue
+        device_id = gw.get('id') or gw.get('mac', '?')
+        hostname = gw.get('hostname') or gw.get('name') or device_id
+        site_id = gw.get('site_id') or gw.get('_site_id')
+        for iface, wan in (gw.get('wan_interface_stat') or {}).items():
+            if not wan.get('up', True):
+                _add({
+                    'id': f"wan-down-{device_id}-{iface}",
+                    'level': 'L1', 'type': 'WAN_BROWNOUT', 'severity': 'critical',
+                    'site_id': site_id, 'site_name': gw.get('_site_name', '—'),
+                    'device_id': device_id, 'device_name': hostname,
+                    'device_type': 'gateway', 'model': gw.get('model', '—'),
+                    'detail': f"WAN interface {iface} is DOWN on gateway {hostname} (site: {gw.get('_site_name','?')})",
+                    'raw': {'iface': iface, 'wan_stat': wan},
+                })
+
+    # ── Switch PoE overload ───────────────────────────────────────────────────────
+    for sw in telemetry.get('switches', []):
+        if sw.get('status') != 'connected':
+            continue
+        poe = sw.get('poe_stat') or {}
+        draw = poe.get('current_draw', 0) or 0
+        budget = poe.get('max_power', 0) or 0
+        if budget > 0 and (draw / budget) > 0.90:
+            device_id = sw.get('id') or sw.get('mac', '?')
+            hostname = sw.get('hostname') or sw.get('name') or device_id
+            _add({
+                'id': f"poe-overload-{device_id}",
+                'level': 'L1', 'type': 'POE_OVERLOAD', 'severity': 'high',
+                'site_id': sw.get('site_id') or sw.get('_site_id'),
+                'site_name': sw.get('_site_name', '—'),
+                'device_id': device_id, 'device_name': hostname,
+                'device_type': 'switch', 'model': sw.get('model', '—'),
+                'detail': f"PoE overload on {hostname}: {draw:.1f}W / {budget:.1f}W ({draw/budget*100:.0f}% utilized)",
+                'raw': poe,
+            })
+
+    # ── Alarm-based issues ────────────────────────────────────────────────────────
     for alarm in telemetry.get('alarms', []):
         atype = alarm.get('type', '')
         severity = 'critical' if alarm.get('severity') in ('critical', 'error') else 'medium'
-        issues.append({
+        _add({
             'id': f"alarm-{alarm.get('id','?')}",
             'level': 'L1',
             'type': f"ALARM_{atype.upper().replace('-','_')}",
@@ -932,15 +1051,15 @@ def _sd_detect_issues(telemetry: dict) -> list:
             'raw': alarm,
         })
 
-    # Org-level health flags
+    # ── Org-level AP offline cluster ──────────────────────────────────────────────
     stats = telemetry.get('org_stats', {})
-    num_aps = stats.get('num_aps', 0)
-    num_aps_connected = stats.get('num_aps_connected', 0)
+    num_aps = stats.get('num_aps', 0) or 0
+    num_aps_connected = stats.get('num_aps_connected', 0) or 0
     if num_aps and num_aps_connected < num_aps:
         offline_count = num_aps - num_aps_connected
         pct = round(offline_count / num_aps * 100)
         if pct >= 5:
-            issues.append({
+            _add({
                 'id': 'org-ap-offline',
                 'level': 'L1',
                 'type': 'AP_OFFLINE_CLUSTER',
@@ -960,18 +1079,60 @@ def _sd_claude_diagnose(issues: list, telemetry: dict) -> dict:
         return {'diagnoses': [], 'summary': 'No issues detected — network is healthy.'}
 
     issue_text = json.dumps(issues[:20], indent=2)
-    org_stats_text = json.dumps(telemetry.get('org_stats', {}), indent=2)
+
+    # Build compact live-stats context for Claude
+    def _ap_summary(ap):
+        rs = ap.get('radio_stat') or {}
+        radios = {}
+        for bk, bl in [('band_6','6G'), ('band_5','5G'), ('band_24','2.4G')]:
+            b = rs.get(bk) or {}
+            if b:
+                radios[bl] = {'ch': b.get('channel'), 'noise': b.get('noise_floor'), 'clients': b.get('num_clients')}
+        return {
+            'name': ap.get('hostname') or ap.get('name', '?'),
+            'model': ap.get('model'), 'status': ap.get('status'),
+            'site': ap.get('_site_name'), 'clients': ap.get('num_clients', 0),
+            'radio': radios,
+        }
+
+    def _sw_summary(sw):
+        poe = sw.get('poe_stat') or {}
+        return {
+            'name': sw.get('hostname') or sw.get('name', '?'),
+            'model': sw.get('model'), 'status': sw.get('status'),
+            'site': sw.get('_site_name'), 'uptime': sw.get('uptime'),
+            'poe_draw_w': poe.get('current_draw'), 'poe_budget_w': poe.get('max_power'),
+        }
+
+    def _gw_summary(gw):
+        wan = {k: {'ip': v.get('ip'), 'up': v.get('up'), 'latency_ms': v.get('latency')}
+               for k, v in (gw.get('wan_interface_stat') or {}).items()}
+        return {
+            'name': gw.get('hostname') or gw.get('name', '?'),
+            'model': gw.get('model'), 'status': gw.get('status'),
+            'site': gw.get('_site_name'), 'wan_interfaces': wan,
+        }
+
+    device_context = {
+        'aps':      [_ap_summary(a) for a in telemetry.get('aps', [])[:15]],
+        'switches': [_sw_summary(s) for s in telemetry.get('switches', [])[:10]],
+        'gateways': [_gw_summary(g) for g in telemetry.get('gateways', [])[:5]],
+        'org_stats': telemetry.get('org_stats', {}),
+    }
+    device_context_text = json.dumps(device_context, indent=2)
 
     prompt = f"""You are a Mist Network NOC AI performing automated root-cause analysis.
 
 DETECTED ISSUES ({len(issues)} total):
 {issue_text}
 
-ORG STATS:
-{org_stats_text}
+LIVE DEVICE STATS (APs, switches, gateways from /stats/devices):
+{device_context_text}
 
 For each issue, classify the root cause into one of:
-RF_INTERFERENCE, AP_OFFLINE, AUTH_FAILURE, DHCP_ISSUE, UPSTREAM_SWITCH, WAN_BROWNOUT, FIRMWARE_BUG, CONFIG_ERROR, UNKNOWN
+RF_INTERFERENCE, AP_OFFLINE, AUTH_FAILURE, DHCP_ISSUE, UPSTREAM_SWITCH, WAN_BROWNOUT, FIRMWARE_BUG, CONFIG_ERROR, POE_OVERLOAD, UNKNOWN
+
+Use the live device stats to correlate patterns — e.g. multiple APs offline on the same switch suggests UPSTREAM_SWITCH, WAN interface down means WAN_BROWNOUT, high noise + high utilization = RF_INTERFERENCE.
 
 Return a JSON object with:
 {{
@@ -980,12 +1141,12 @@ Return a JSON object with:
       "issue_id": "<id from above>",
       "root_cause": "<classification>",
       "confidence": <0-100>,
-      "explanation": "<1-2 sentence reason>",
+      "explanation": "<1-2 sentence reason citing specific device stats>",
       "recommended_action": "<specific actionable step>",
       "auto_remediable": <true|false>
     }}
   ],
-  "summary": "<1-2 sentence overall network health summary>",
+  "summary": "<2-3 sentence overall network health summary citing real device names/sites>",
   "critical_count": <number of critical issues>
 }}
 
@@ -1035,10 +1196,12 @@ def _sd_apply_remediations(diagnoses: list, dry_run: bool = True, issues_by_id: 
     issues_by_id = issues_by_id or {}
 
     REMEDIATION_MAP = {
-        'AP_OFFLINE': _remediate_ap_offline,
-        'DEVICE_OFFLINE': _remediate_ap_offline,
-        'RF_INTERFERENCE': _remediate_rf_interference,
+        'AP_OFFLINE':       _remediate_ap_offline,
+        'DEVICE_OFFLINE':   _remediate_ap_offline,
+        'RF_INTERFERENCE':  _remediate_rf_interference,
         'AP_OFFLINE_CLUSTER': _remediate_cluster_offline,
+        'WAN_BROWNOUT':     _remediate_cluster_offline,   # escalate to NOC
+        'POE_OVERLOAD':     _remediate_cluster_offline,   # escalate to NOC
     }
 
     for diag in diagnoses:
