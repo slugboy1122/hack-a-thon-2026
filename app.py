@@ -467,6 +467,16 @@ def client_stats(site_id):
     return mist_json(mist_request('GET', f'/sites/{site_id}/stats/clients'))
 
 
+@app.route('/api/v1/sites/<site_id>/wired_clients/search', methods=['GET'])
+def wired_client_search(site_id):
+    return mist_json(mist_request('GET', f'/sites/{site_id}/wired_clients/search', params=request.args))
+
+
+@app.route('/api/v1/sites/<site_id>/nac_clients/search', methods=['GET'])
+def nac_client_search(site_id):
+    return mist_json(mist_request('GET', f'/sites/{site_id}/nac_clients/search', params=request.args))
+
+
 @app.route('/api/v1/sites/<site_id>/wlans', methods=['GET', 'POST'])
 def wlans(site_id):
     if request.method == 'GET':

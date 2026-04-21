@@ -6,7 +6,7 @@
 <title>Tatooine — Mist Network Intelligence</title>
 <link rel="icon" type="image/webp" href="/static/favicon.webp">
 <link rel="apple-touch-icon" href="/static/favicon.webp">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Barlow+Condensed:wght@300;400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Open+Sans:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:#070504; --bg2:#0d0a06; --bg3:#141009; --panel:#100d07;
@@ -14,7 +14,7 @@
   --text:#d8cfc0; --muted:#6e6258; --muted2:#8a7d6f;
   --accent:#e8a040; --accent2:#5ab8d8;
   --ok:#44c49a; --warn:#e8973a; --danger:#c94f35;
-  --mono:'Space Mono',monospace; --sans:'Barlow Condensed',sans-serif; --display:'Cinzel',serif;
+  --mono:'Space Mono',monospace; --sans:'Open Sans',sans-serif; --display:'Cinzel',serif;
   --glow-amber:rgba(232,160,64,0.15); --glow-teal:rgba(68,196,154,0.15);
   --transition:150ms cubic-bezier(0.4,0,0.2,1);
 }
@@ -1124,7 +1124,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
       <div id="tab-clients" class="tab-content">
         <div class="section-header">
           <div>
-            <div class="section-title">Connected Clients</div>
+            <div class="section-title" id="clients-title">Connected Clients</div>
             <div class="section-sub" id="clients-sub">Live client sessions across all sites</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
@@ -1273,7 +1273,6 @@ let allSites    = [];
 let allAPs      = [];
 let allSwitches = [];
 let allWan      = [];
-let allClients  = [];
 let chatHistory = [];
 let tshootType = 'wireless';
 
@@ -2415,29 +2414,39 @@ function showNacRuleDetail(ruleJson) {
 }
 
 // ── Connected Clients ──────────────────────────────────────────────────────────
-let _clientsLoaded = false;
+// Each sub-menu type loads from its own Mist endpoint and has its own cache.
+let _currentClientType = 'wireless';
+let _clientsLoaded     = { wireless: false, wired: false, nac: false };
+let _clientsByType     = { wireless: [], wired: [], nac: [] };
+
+const CLIENT_TYPE_META = {
+  wireless: { title: 'Wireless Clients',             sub: 'Live associations · Access Points',         badge: 'badge-clients-wireless', kpi: ['wireless','—','—'] },
+  wired:    { title: 'Wired Clients',                sub: 'Active wired sessions · Switches',          badge: 'badge-clients-wired',    kpi: ['—','wired','—']    },
+  nac:      { title: 'NAC / Access Assurance Clients', sub: '802.1X · MAB · PSK authenticated sessions', badge: 'badge-clients-nac',      kpi: ['—','—','nac']    },
+};
 
 function showClients(typeFilter) {
+  _currentClientType = typeFilter || 'wireless';
+  const meta = CLIENT_TYPE_META[_currentClientType];
+  document.getElementById('clients-title').textContent = meta.title;
+  document.getElementById('clients-sub').textContent   = meta.sub;
+  // hide the type-filter dropdown — each submenu already targets one type
+  const typeFilterEl = document.getElementById('clients-type-filter');
+  if (typeFilterEl) typeFilterEl.style.display = 'none';
   showTab('clients');
-  if (typeFilter) {
-    const sel = document.getElementById('clients-type-filter');
-    if (sel) {
-      if (typeFilter === 'nac') sel.value = '';
-      else sel.value = typeFilter;
-    }
-  }
-  if (!_clientsLoaded) loadClients();
-  else filterClients();
+  if (!_clientsLoaded[_currentClientType]) loadClients();
+  else { updateClientsKPIs(); filterClients(); }
 }
 
 async function loadClients(force) {
   if (!SESSION.token) return;
-  if (_clientsLoaded && !force) { filterClients(); return; }
-  allClients = [];
-  _clientsLoaded = false;
+  const t = _currentClientType;
+  if (_clientsLoaded[t] && !force) { updateClientsKPIs(); filterClients(); return; }
+  _clientsByType[t] = [];
+  _clientsLoaded[t] = false;
   const tbody = document.getElementById('clients-body');
   document.getElementById('clients-sub').textContent = 'Loading…';
-  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted);font-family:var(--mono);font-size:11px"><span class="spinner-sm"></span> Fetching client sessions from Mist API…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted);font-family:var(--mono);font-size:11px"><span class="spinner-sm"></span> Fetching client sessions…</td></tr>';
   try {
     const sites = allSites.length ? allSites : [];
     if (!sites.length) {
@@ -2446,40 +2455,50 @@ async function loadClients(force) {
     }
     await Promise.all(sites.map(async site => {
       try {
-        const data = await mist('/sites/' + site.id + '/stats/clients');
-        const list = Array.isArray(data) ? data : (data.results || []);
-        list.forEach(c => { c._site_name = site.name; c._site_id = site.id; });
-        allClients.push(...list);
+        let list = [];
+        if (t === 'wireless') {
+          const data = await mist('/sites/' + site.id + '/stats/clients');
+          list = Array.isArray(data) ? data : (data.results || []);
+        } else if (t === 'wired') {
+          const data = await mist('/sites/' + site.id + '/wired_clients/search?limit=1000');
+          list = data.results || [];
+        } else if (t === 'nac') {
+          const data = await mist('/sites/' + site.id + '/nac_clients/search?limit=1000');
+          list = data.results || [];
+        }
+        list.forEach(c => { c._site_name = site.name; c._site_id = site.id; c._view_type = t; });
+        _clientsByType[t].push(...list);
       } catch(e) {}
     }));
-    _clientsLoaded = true;
-    const wireless = allClients.filter(c => (c.type||'wireless') === 'wireless').length;
-    const wired    = allClients.filter(c => c.type === 'wired').length;
-    const guest    = allClients.filter(c => c.is_guest).length;
-    document.getElementById('clients-kpi-total').textContent   = allClients.length;
-    document.getElementById('clients-kpi-wireless').textContent = wireless;
-    document.getElementById('clients-kpi-wired').textContent   = wired;
-    document.getElementById('clients-kpi-guest').textContent   = guest;
-    document.getElementById('clients-kpi-row').style.display   = 'grid';
-    document.getElementById('clients-sub').textContent =
-      `${allClients.length} clients · ${wireless} wireless · ${wired} wired · ${guest} guest`;
-    const wBadge = document.getElementById('badge-clients-wireless');
-    const swBadge = document.getElementById('badge-clients-wired');
-    const nacBadge = document.getElementById('badge-clients-nac');
-    if (wBadge)  { wBadge.textContent  = wireless; wBadge.style.display  = wireless  ? '' : 'none'; }
-    if (swBadge) { swBadge.textContent = wired;    swBadge.style.display = wired     ? '' : 'none'; }
-    if (nacBadge){ nacBadge.textContent = allClients.length; nacBadge.style.display = allClients.length ? '' : 'none'; }
+    _clientsLoaded[t] = true;
+    updateClientsKPIs();
     filterClients();
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--danger);font-family:var(--mono);font-size:11px">// Error: ${e.message}</td></tr>`;
   }
 }
 
+function updateClientsKPIs() {
+  const t    = _currentClientType;
+  const list = _clientsByType[t] || [];
+  const meta = CLIENT_TYPE_META[t];
+  // guest count applies to wireless only
+  const guest = list.filter(c => c.is_guest).length;
+  document.getElementById('clients-kpi-total').textContent   = list.length;
+  document.getElementById('clients-kpi-wireless').textContent = t === 'wireless' ? list.length : '—';
+  document.getElementById('clients-kpi-wired').textContent   = t === 'wired'    ? list.length : '—';
+  document.getElementById('clients-kpi-guest').textContent   = t === 'wireless' ? guest : '—';
+  document.getElementById('clients-kpi-row').style.display   = 'grid';
+  document.getElementById('clients-sub').textContent =
+    `${list.length} ${t} client${list.length !== 1 ? 's' : ''} · ${allSites.length} site${allSites.length !== 1 ? 's' : ''} polled`;
+  // sidebar badge
+  const badge = document.getElementById(meta.badge);
+  if (badge) { badge.textContent = list.length; badge.style.display = list.length ? '' : 'none'; }
+}
+
 function filterClients() {
-  const q    = (document.getElementById('clients-search')?.value || '').toLowerCase();
-  const type = document.getElementById('clients-type-filter')?.value || '';
-  let list = allClients;
-  if (type) list = list.filter(c => (c.type || 'wireless') === type);
+  const q = (document.getElementById('clients-search')?.value || '').toLowerCase();
+  let list = _clientsByType[_currentClientType] || [];
   if (q) list = list.filter(c =>
     (c.hostname||'').toLowerCase().includes(q) ||
     (c.mac||'').toLowerCase().includes(q) ||
@@ -2487,6 +2506,8 @@ function filterClients() {
     (c.username||'').toLowerCase().includes(q) ||
     (c.ssid||'').toLowerCase().includes(q) ||
     (c.os||'').toLowerCase().includes(q) ||
+    (c.port_id||'').toLowerCase().includes(q) ||
+    (c.auth_type||'').toLowerCase().includes(q) ||
     (c._site_name||'').toLowerCase().includes(q)
   );
   renderClientsTable(list);
@@ -2495,30 +2516,61 @@ function filterClients() {
 function renderClientsTable(clients) {
   const tbody = document.getElementById('clients-body');
   if (!clients.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted2);font-family:var(--mono);font-size:11px">// No clients match</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted2);font-family:var(--mono);font-size:11px">// No clients found</td></tr>';
     return;
   }
   const now = Date.now() / 1000;
   tbody.innerHTML = clients.map(c => {
-    const hostname = c.hostname || c.mac || '—';
+    const t        = c._view_type || 'wireless';
+    const hostname = c.hostname || c.username || c.mac || '—';
     const mac      = c.mac ? `<span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">${c.mac}</span>` : '';
     const ip       = c.ip || '—';
-    const isWired  = c.type === 'wired';
-    const typeBadge = isWired
+
+    // type badge
+    const typeBadge = t === 'nac'
+      ? `<span class="tag info">${c.auth_type || 'nac'}</span>`
+      : t === 'wired'
       ? '<span class="tag info">wired</span>'
       : '<span class="tag ok">wireless</span>';
-    const network  = c.ssid || c.network || '—';
-    const apPort   = c.ap_mac
-      ? `<span style="font-family:var(--mono);font-size:10px">${c.ap_mac}</span>`
-      : (c.port_id ? `<span style="font-family:var(--mono);font-size:10px">${c.port_id}</span>` : '—');
-    const band     = c.band ? `${c.band} GHz` : '—';
-    const rssi     = c.rssi != null
+
+    // network / SSID column
+    const network = t === 'wired'
+      ? (c.network || (c.vlan_id != null ? 'VLAN ' + c.vlan_id : '—'))
+      : (c.ssid || '—');
+
+    // AP / switch port column
+    let apPort = '—';
+    if (t === 'wireless' || t === 'nac') {
+      apPort = c.ap_mac ? `<span style="font-family:var(--mono);font-size:10px">${c.ap_mac}</span>` : '—';
+    } else if (t === 'wired') {
+      const swName = c.device_mac || '';
+      const port   = c.port_id   || '';
+      apPort = port
+        ? `<span style="font-family:var(--mono);font-size:10px">${port}${swName ? '<br>' + swName.slice(-8) : ''}</span>`
+        : '—';
+    }
+
+    // band / RSSI only meaningful for wireless
+    const band = (t === 'wireless' && c.band) ? `${c.band} GHz` : '—';
+    const rssi = (t === 'wireless' && c.rssi != null)
+      ? `<span style="color:${c.rssi>=-65?'var(--ok)':c.rssi>=-75?'var(--warn)':'var(--danger)'}">${c.rssi} dBm</span>`
+      : (t === 'nac' && c.rssi != null)
       ? `<span style="color:${c.rssi>=-65?'var(--ok)':c.rssi>=-75?'var(--warn)':'var(--danger)'}">${c.rssi} dBm</span>`
       : '—';
-    const os       = c.os || c.family || c.manufacture || '—';
+
+    // OS / identity column — richer for NAC
+    let identity = c.os || c.family || c.manufacture || '—';
+    if (t === 'nac') {
+      identity = c.mdm_compliance_status
+        ? `<span style="color:${c.mdm_compliance_status==='compliant'?'var(--ok)':'var(--warn)'}">${c.mdm_compliance_status}</span>`
+        : (c.cert_cn || c.nas_vendor || '—');
+    }
+
     const vlan     = c.vlan_id != null ? c.vlan_id : '—';
-    const dur      = c.since ? fmtDuration(now - c.since) : '—';
+    const ts       = c.since || c.last_seen;
+    const dur      = ts ? fmtDuration(now - ts) : '—';
     const guestMark = c.is_guest ? ' <span class="tag warn" style="font-size:9px">guest</span>' : '';
+
     return `<tr>
       <td><span class="ap-name">${hostname}</span>${guestMark}<br>${mac}</td>
       <td style="font-family:var(--mono);font-size:11px">${ip}</td>
@@ -2527,7 +2579,7 @@ function renderClientsTable(clients) {
       <td>${apPort}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${band}</td>
       <td style="font-family:var(--mono);font-size:11px">${rssi}</td>
-      <td style="font-size:11px;color:var(--muted)">${os}</td>
+      <td style="font-size:11px;color:var(--muted)">${identity}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${vlan}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${dur}</td>
     </tr>`;
