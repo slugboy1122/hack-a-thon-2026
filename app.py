@@ -462,6 +462,11 @@ def device_stats(site_id):
     return mist_json(mist_request('GET', f'/sites/{site_id}/stats/devices', params=request.args))
 
 
+@app.route('/api/v1/sites/<site_id>/devices/events/search', methods=['GET'])
+def device_events_search(site_id):
+    return mist_json(mist_request('GET', f'/sites/{site_id}/devices/events/search', params=request.args))
+
+
 @app.route('/api/v1/sites/<site_id>/stats/clients', methods=['GET'])
 def client_stats(site_id):
     return mist_json(mist_request('GET', f'/sites/{site_id}/stats/clients'))

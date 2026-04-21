@@ -944,6 +944,24 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           <table class="ap-table"><thead><tr><th>Name</th><th>Model</th><th>Site</th><th>IP</th><th>Version</th><th>Uptime</th><th>WAN IPs</th><th>Status</th></tr></thead>
           <tbody id="wan-body"><tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Loading gateways...</td></tr></tbody>
         </table></div></div>
+
+        <!-- WAN Insights -->
+        <div class="section-header" style="margin-top:24px">
+          <div>
+            <div class="section-title">WAN Insights</div>
+            <div class="section-sub" id="wan-events-sub">Device events · Last 24 hours</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="wan-events-filter" class="marvis-input" style="width:220px;padding:5px 10px;font-size:12px" placeholder="Filter events…" oninput="filterWanEvents()">
+            <button class="btn" onclick="loadWanEvents()" style="font-size:11px;padding:4px 10px">Refresh</button>
+          </div>
+        </div>
+        <div class="card"><div class="card-body" style="padding:0">
+          <table class="ap-table">
+            <thead><tr><th>Time</th><th>Gateway</th><th>Site</th><th>Type</th><th>Details</th></tr></thead>
+            <tbody id="wan-events-body"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Load gateways first</td></tr></tbody>
+          </table>
+        </div></div>
       </div>
 
       <!-- AI ASSISTANT -->
@@ -1412,7 +1430,7 @@ function toggleTheme() {
 }
 
 (function initTheme() {
-  const saved = localStorage.getItem('tat_theme') || 'dark';
+  const saved = localStorage.getItem('tat_theme') || 'light';
   document.documentElement.setAttribute('data-theme', saved);
   const btn = document.getElementById('theme-toggle-btn');
   if (btn) btn.textContent = saved === 'light' ? '☾' : '☀';
@@ -1790,10 +1808,83 @@ async function loadWan() {
     tbody.innerHTML = gw.map(g => gwRow(g).full).join('');
     const dashGw = document.getElementById('dash-gw-body');
     if (dashGw) dashGw.innerHTML = gw.map(g => gwRow(g).dash).join('');
+    loadWanEvents();
   } catch(e) {
     document.getElementById('wan-body').innerHTML =
       `<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--danger);font-family:var(--mono);font-size:11px">// Error: ${e.message}</td></tr>`;
   }
+}
+
+// ── WAN Events ─────────────────────────────────────────────────────────────────
+let _wanEvents = [];
+async function loadWanEvents() {
+  const sub = document.getElementById('wan-events-sub');
+  const tbody = document.getElementById('wan-events-body');
+  if (!allWan || !allWan.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">// No gateways loaded</td></tr>';
+    return;
+  }
+  sub.textContent = 'Loading device events…';
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Fetching…</td></tr>';
+  try {
+    const all = [];
+    await Promise.all(allWan.map(async gw => {
+      const mac = gw.mac;
+      const siteId = gw._site_id || gw.site_id;
+      if (!mac || !siteId) return;
+      try {
+        const data = await mist(`/sites/${siteId}/devices/events/search?limit=500&mac=${mac}&duration=1d`);
+        const evts = Array.isArray(data) ? data : (data.results || []);
+        evts.forEach(e => { e._gw_name = gw.hostname || gw.name || mac; e._site_name = gw._site_name || '—'; e._mac = mac; });
+        all.push(...evts);
+      } catch(_) {}
+    }));
+    all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    _wanEvents = all;
+    sub.textContent = `${all.length} event${all.length !== 1 ? 's' : ''} · Last 24 hours · ${allWan.length} gateway${allWan.length !== 1 ? 's' : ''}`;
+    renderWanEvents(all);
+  } catch(e) {
+    sub.textContent = 'Error loading events';
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--danger);font-family:var(--mono);font-size:11px">// ${e.message}</td></tr>`;
+  }
+}
+
+function filterWanEvents() {
+  const q = (document.getElementById('wan-events-filter').value || '').toLowerCase();
+  renderWanEvents(q ? _wanEvents.filter(e =>
+    (e.type || '').toLowerCase().includes(q) ||
+    (e._gw_name || '').toLowerCase().includes(q) ||
+    (e._site_name || '').toLowerCase().includes(q) ||
+    (e.message || '').toLowerCase().includes(q)
+  ) : _wanEvents);
+}
+
+function renderWanEvents(evts) {
+  const tbody = document.getElementById('wan-events-body');
+  if (!evts.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">// No events found</td></tr>';
+    return;
+  }
+  const typeColor = t => {
+    if (!t) return 'var(--muted2)';
+    t = t.toLowerCase();
+    if (t.includes('up') || t.includes('connect') || t.includes('online')) return 'var(--ok)';
+    if (t.includes('down') || t.includes('disconnect') || t.includes('offline') || t.includes('error') || t.includes('fail')) return 'var(--danger)';
+    if (t.includes('warn') || t.includes('degrad') || t.includes('flap')) return 'var(--warn)';
+    return 'var(--accent2)';
+  };
+  tbody.innerHTML = evts.slice(0, 200).map(e => {
+    const ts = e.timestamp ? new Date(e.timestamp * 1000).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    const typ = e.type || e.ev_type || '—';
+    const detail = e.message || e.text || e.reason || (e.ap ? `AP: ${e.ap}` : '') || JSON.stringify(e).slice(0, 80);
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:11px;white-space:nowrap;color:var(--muted)">${ts}</td>
+      <td><span class="ap-name" style="font-size:12px">${e._gw_name}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${e._site_name}</td>
+      <td><span class="tag" style="color:${typeColor(typ)};border-color:${typeColor(typ)};font-size:10px">${typ}</span></td>
+      <td style="font-size:12px;color:var(--muted2);max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${detail.replace(/"/g,"'")}">${detail}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── Audit Log ──────────────────────────────────────────────────────────────────
