@@ -863,7 +863,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           </div>
         </div>
         <div class="card"><div class="card-body" style="padding:0">
-          <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>MAC</th><th>Version</th><th>Uptime</th><th>Clients</th><th>Status</th></tr></thead>
+          <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>Version</th><th>Radio</th><th>Uptime</th><th>Clients</th><th>Status</th></tr></thead>
           <tbody id="ap-body"></tbody></table>
         </div></div>
       </div>
@@ -1507,10 +1507,9 @@ async function loadAPs() {
   }
   await Promise.all(siteList.map(async site => {
     try {
-      const devs = await mist('/sites/' + site.id + '/devices');
-      const aps = (Array.isArray(devs) ? devs : []).filter(d => !d.type || d.type === 'ap');
-      aps.forEach(d => { d._site_name = site.name; d._site_id = site.id; });
-      allAPs.push(...aps);
+      const devs = await mist('/sites/' + site.id + '/stats/devices?type=ap');
+      (Array.isArray(devs) ? devs : []).forEach(d => { d._site_name = site.name; d._site_id = site.id; });
+      allAPs.push(...(Array.isArray(devs) ? devs : []));
     } catch(e) {}
   }));
 
@@ -1527,6 +1526,21 @@ async function loadAPs() {
   renderAPTable(allAPs, 'ap-body', 9);
 }
 
+function apRadioSummary(d) {
+  if (d.status !== 'connected' || !d.radio_stat) return '<span style="color:var(--muted2);font-size:10px">—</span>';
+  const bands = [
+    { key:'band_6',  label:'6G',   color:'var(--accent2)' },
+    { key:'band_5',  label:'5G',   color:'var(--ok)'      },
+    { key:'band_24', label:'2.4G', color:'var(--warn)'    },
+  ];
+  return bands.filter(b => d.radio_stat[b.key]).map(b => {
+    const r = d.radio_stat[b.key];
+    const ch = r.channel ? `ch${r.channel}${r.bandwidth?'/'+r.bandwidth:''}` : '';
+    const cl = r.num_clients != null ? ` <span style="color:var(--muted2)">${r.num_clients}cl</span>` : '';
+    return `<span style="font-family:var(--mono);font-size:10px;color:${b.color}">${b.label}${ch?` ${ch}`:''}${cl}</span>`;
+  }).join('<br>');
+}
+
 function renderAPTable(aps, tbodyId, cols) {
   const tbody = document.getElementById(tbodyId);
   if (!aps.length) {
@@ -1539,8 +1553,11 @@ function renderAPTable(aps, tbodyId, cols) {
       : d.status === 'disconnected'
       ? '<span class="tag danger">offline</span>'
       : `<span class="tag warn">${d.status || 'unknown'}</span>`;
+    const clickAttr = d.id && d._site_id
+      ? `class="clickable" onclick="openDeviceDetail('${d._site_id}','${d.id}','ap')"`
+      : '';
     if (cols === 6) {
-      return `<tr>
+      return `<tr ${clickAttr}>
         <td><span class="ap-name">${d.name || d.hostname || d.id}</span></td>
         <td style="color:var(--muted);font-size:11px">${d._site_name}</td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${d.model || '—'}</td>
@@ -1548,13 +1565,13 @@ function renderAPTable(aps, tbodyId, cols) {
         <td style="font-family:var(--mono);font-size:11px;color:var(--accent2)">${d.num_clients ?? '—'}</td>
         <td>${status}</td></tr>`;
     }
-    return `<tr>
-      <td><span class="ap-name">${d.name || d.hostname || d.id}</span></td>
+    return `<tr ${clickAttr}>
+      <td><span class="ap-name">${d.name || d.hostname || d.id}</span><br><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)">${d.mac || ''}</span></td>
       <td style="color:var(--muted);font-size:11px">${d._site_name}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${d.model || '—'}</td>
       <td style="font-family:var(--mono);font-size:11px">${d.ip || '—'}</td>
-      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${d.mac || '—'}</td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${d.version || '—'}</td>
+      <td style="line-height:1.6">${apRadioSummary(d)}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${fmtUptime(d.uptime)}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--accent2)">${d.num_clients ?? '—'}</td>
       <td>${status}</td></tr>`;
