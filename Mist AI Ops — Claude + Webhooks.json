@@ -1,0 +1,1106 @@
+{
+  "name": "Mist AI Ops — Claude + Webhooks",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mist-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "110a3c67-de28-46e9-b245-955e575749ab",
+      "name": "Mist Webhook Receiver",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        -16
+      ],
+      "webhookId": "mist-events"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tatooine.thewifijedi.com/webhook/mist",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($input.first().json.body || $input.first().json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 3000
+        }
+      },
+      "id": "2506cec7-757e-4117-9da5-08a080beaa1e",
+      "name": "Buffer Raw Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -608,
+        192
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "1996bfe8-d07c-4777-b536-db5a134c712a",
+      "name": "Normalize Event",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -608,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"received\" } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "cd9c266e-c60a-4cc8-b2f6-e4f322d99b99",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-001",
+              "leftValue": "={{ $json.topic }}",
+              "rightValue": "alarms",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "c26a0b26-5d23-4e63-8f1d-0853df938641",
+      "name": "High Priority?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "62ccec36-9a97-47b7-aa77-5185c0e89e62",
+      "name": "Build Analysis Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1024, messages: [{ role: 'user', content: $json.prompt }] }) }}",
+        "options": {}
+      },
+      "id": "263dd0b6-19de-4f26-95f0-b0d4d0a3f2ce",
+      "name": "Claude Analyze Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "29f622eb-71f9-41a5-bb7b-231e3e4a1015",
+      "name": "Parse Analysis",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tatooine.thewifijedi.com/api/n8n/analysis",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ topic: $json.topic, org_id: $json.org_id, analysis: $json.analysis }) }}",
+        "options": {}
+      },
+      "id": "f87eeed9-b6ee-45e6-a1d9-8902b677ae82",
+      "name": "Push to Tatooine",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {},
+      "id": "37c6f1b0-2655-4118-af31-20fad09ca8fc",
+      "name": "Log Low Priority",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tatooine.thewifijedi.com/api/n8n/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ topic: $('Normalize Event').first().json.topic, events: $('Normalize Event').first().json.events, priority: 'low' }) }}",
+        "options": {}
+      },
+      "id": "752b7f8c-66f7-427a-8094-78306caac728",
+      "name": "Push Low to Tatooine",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "81f38f74-e2dc-4c60-9a3f-2bf867be7ccc",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1040,
+        384
+      ],
+      "webhookId": "chat"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "75af5094-44cf-4653-99f8-95c7f057aec0",
+      "name": "Build Chat Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -576,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2048, system: $json.system_prompt, messages: [{ role: 'user', content: $json.user_message }] }) }}",
+        "options": {}
+      },
+      "id": "7925d50f-c7cd-47d7-8f28-65b21988f795",
+      "name": "Claude Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -240,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "79975601-97cb-4f31-bd52-824ce9502b15",
+      "name": "Parse Chat Intent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-chat-001",
+              "leftValue": "={{ $json.has_action }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6442d007-2423-4be7-a4c0-fef210784d37",
+      "name": "Has API Action?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tatooine.thewifijedi.com/api/n8n/action",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.action_json }}",
+        "options": {}
+      },
+      "id": "8db06f7b-f082-4e5c-93cd-eea7c9ffe6a1",
+      "name": "Execute Chat API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "cb58c181-cf0d-48d2-8559-91bd5630ab90",
+      "name": "Build Chat Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1296,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "44810d34-f4ee-4303-96a4-98edafaacc25",
+      "name": "Build Chat Response No Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "path": "mist-api-proxy",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fe83b90c-050a-4004-ba9f-cc6de620ce0e",
+      "name": "Mist API Proxy",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        1264
+      ],
+      "webhookId": "mist-api-proxy"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json.query.action }}",
+                    "rightValue": "={{ \"get_sites\" }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_sites"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "leftValue": "={{ $json.query.action }}",
+                    "rightValue": "={{ \"get_devices\" }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_devices"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "r3",
+                    "leftValue": "={{ $json.query.action }}",
+                    "rightValue": "={{ \"get_clients\" }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_clients"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "r4",
+                    "leftValue": "={{ $json.query.action }}",
+                    "rightValue": "={{ \"get_alarms\" }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_alarms"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "r5",
+                    "leftValue": "={{ $json.query.action }}",
+                    "rightValue": "={{ \"restart_device\" }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "restart_device"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eb89b4e5-7e75-4e50-a2d9-8ac06e8d3db7",
+      "name": "API Action Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -784,
+        1184
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.mist.com/api/v1/orgs/' + ($json.query.org_id || $env.MIST_DEFAULT_ORG_ID) + '/sites' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7df7f9c3-a549-43f7-b449-09de7d5b3b6c",
+      "name": "Mist GET Sites",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.mist.com/api/v1/sites/' + $json.query.site_id + '/devices' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1279bcb8-384b-4db9-b808-92558eca3b2a",
+      "name": "Mist GET Devices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.mist.com/api/v1/sites/' + $json.query.site_id + '/stats/clients' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "45ce3a8e-a132-44ac-baaf-72dd6ab29254",
+      "name": "Mist GET Clients",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        1216
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.mist.com/api/v1/orgs/' + ($json.query.org_id || $env.MIST_DEFAULT_ORG_ID) + '/alarms/search' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9b424e30-3ffd-4e13-8efd-68801107232e",
+      "name": "Mist GET Alarms",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.mist.com/api/v1/sites/' + $json.query.site_id + '/devices/' + $json.query.device_id + '/restart' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f39957d5-1fc5-43b4-a11c-55d5cc76d9fa",
+      "name": "Mist RESTART Device",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "ddfe02c8-1a10-41b4-bd22-ace88f7e0f78",
+      "name": "API Unknown Action",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -224,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "646366a8-1fbe-4d1f-a0a1-19d4a31960b0",
+      "name": "API Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "self-driving-trigger",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fe504d3e-36e9-4248-9a53-7b4e533282ef",
+      "name": "Self-Driving Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1488,
+        544
+      ],
+      "webhookId": "self-driving-trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://tatooine.thewifijedi.com/api/v1/orgs/{{ $json.body.org_id || $json.org_id }}/self-driving/pipeline",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Mist-Token",
+              "value": "={{ $json.body.token || $json.token || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ dry_run: $json.body.dry_run !== false, source: 'n8n' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "1714ad98-10ec-4615-acf1-646d402249ba",
+      "name": "Run Self-Driving Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1040,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "02e1faa8-8723-408f-b13e-0092f435d285",
+      "name": "Self-Driving Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        688
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Mist Webhook Receiver": {
+      "main": [
+        [
+          {
+            "node": "Buffer Raw Event",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Normalize Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer Raw Event": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Event": {
+      "main": [
+        [
+          {
+            "node": "High Priority?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Priority?": {
+      "main": [
+        [
+          {
+            "node": "Build Analysis Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Low Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Analysis Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude Analyze Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Analyze Event": {
+      "main": [
+        [
+          {
+            "node": "Parse Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Analysis": {
+      "main": [
+        [
+          {
+            "node": "Push to Tatooine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Low Priority": {
+      "main": [
+        [
+          {
+            "node": "Push Low to Tatooine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Chat Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Chat Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Chat": {
+      "main": [
+        [
+          {
+            "node": "Parse Chat Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Chat Intent": {
+      "main": [
+        [
+          {
+            "node": "Has API Action?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has API Action?": {
+      "main": [
+        [
+          {
+            "node": "Execute Chat API Call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Chat Response No Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Chat API Call": {
+      "main": [
+        [
+          {
+            "node": "Build Chat Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mist API Proxy": {
+      "main": [
+        [
+          {
+            "node": "API Action Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Action Router": {
+      "main": [
+        [
+          {
+            "node": "Mist GET Sites",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mist GET Devices",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mist GET Clients",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mist GET Alarms",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mist RESTART Device",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mist GET Sites": {
+      "main": [
+        [
+          {
+            "node": "API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mist GET Devices": {
+      "main": [
+        [
+          {
+            "node": "API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mist GET Clients": {
+      "main": [
+        [
+          {
+            "node": "API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mist GET Alarms": {
+      "main": [
+        [
+          {
+            "node": "API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mist RESTART Device": {
+      "main": [
+        [
+          {
+            "node": "API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Unknown Action": {
+      "main": [
+        [
+          {
+            "node": "API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Self-Driving Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Self-Driving Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Self-Driving Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Self-Driving Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "eb3cdc06-21c4-4da1-a20e-4816a858658e",
+  "meta": {
+    "instanceId": "186c38cbd55aaa027aeb30f77ddad250d23b6a7b5d860db8f7e6883a04cf77f2"
+  },
+  "id": "hYqXcIroggeg61BL",
+  "tags": []
+}
