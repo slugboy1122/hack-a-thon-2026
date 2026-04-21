@@ -4,206 +4,450 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tatooine — Mist Network Intelligence</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/webp" href="/static/favicon.webp">
+<link rel="apple-touch-icon" href="/static/favicon.webp">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Barlow+Condensed:wght@300;400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:#0a0d0f; --bg2:#0f1417; --bg3:#151c20; --panel:#111820;
-  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.12);
-  --text:#e8edf0; --muted:#6b7c88;
-  --accent:#00d4a8; --accent2:#0095ff;
-  --warn:#f5a623; --danger:#ff4757; --ok:#00d4a8;
-  --mono:'IBM Plex Mono',monospace; --sans:'DM Sans',sans-serif;
+  --bg:#070504; --bg2:#0d0a06; --bg3:#141009; --panel:#100d07;
+  --border:rgba(200,150,55,0.18); --border2:rgba(200,150,55,0.35);
+  --text:#d4a85c; --muted:#7a5828; --muted2:#8a6030;
+  --accent:#e8a040; --accent2:#5ab8d8;
+  --ok:#44c49a; --warn:#e8973a; --danger:#c94f35;
+  --mono:'Space Mono',monospace; --sans:'Barlow Condensed',sans-serif; --display:'Cinzel',serif;
+  --glow-amber:rgba(232,160,64,0.15); --glow-teal:rgba(68,196,154,0.15);
+  --transition:150ms cubic-bezier(0.4,0,0.2,1);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999}
+html{font-size:14px}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;
+  min-height:100vh;overflow-x:hidden;font-weight:400;letter-spacing:0.01em;
+}
+/* Scan-line overlay */
+body::before{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent 0px,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px);
+  pointer-events:none;z-index:9999;opacity:0.6;
+}
+/* Text selection */
+::selection{background:rgba(232,160,64,0.3);color:var(--accent)}
+/* Scrollbar */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(200,150,55,0.25);border-radius:0}
+::-webkit-scrollbar-thumb:hover{background:rgba(200,150,55,0.45)}
 
-/* ── Login ── */
-#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)}
-.login-box{width:420px;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:36px;box-shadow:0 24px 64px rgba(0,0,0,0.5)}
-.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
-.login-logo-icon{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#000;font-family:var(--mono)}
-.login-hint{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6;font-family:var(--mono)}
+/* ══ LOGIN ══════════════════════════════════════════════════════════════════════ */
+#login-screen{
+  display:flex;align-items:center;justify-content:center;min-height:100vh;
+  background:radial-gradient(ellipse 100% 60% at 50% 0%,rgba(200,120,30,0.07) 0%,transparent 65%),var(--bg);
+  position:relative;overflow:hidden;
+}
+#login-screen::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(232,160,64,0.4) 30%,rgba(196,79,53,0.3) 50%,rgba(232,160,64,0.4) 70%,transparent);
+}
+.login-suns{
+  position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+  width:320px;height:160px;pointer-events:none;
+}
+.login-box{
+  width:440px;background:var(--bg2);
+  border:1px solid var(--border2);
+  padding:40px 36px 32px;
+  box-shadow:0 0 0 1px rgba(200,150,55,0.06),0 32px 80px rgba(0,0,0,0.7),inset 0 1px 0 rgba(200,150,55,0.08);
+  position:relative;z-index:2;animation:terminalAppear 0.4s ease-out forwards;
+}
+@keyframes terminalAppear{
+  from{opacity:0;transform:translateY(16px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.login-box::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent) 30%,var(--warn) 50%,var(--accent) 70%,transparent);
+}
+.login-logo{display:flex;align-items:center;gap:14px;margin-bottom:28px}
+.login-logo-icon{
+  width:44px;height:44px;position:relative;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.login-logo-sun-a{
+  position:absolute;width:28px;height:28px;border-radius:50%;
+  background:radial-gradient(circle,#ffd475 0%,#e8973a 45%,rgba(232,150,58,0) 75%);
+  top:4px;left:2px;animation:sunPulse 4s ease-in-out infinite;
+}
+.login-logo-sun-b{
+  position:absolute;width:20px;height:20px;border-radius:50%;
+  background:radial-gradient(circle,#fff0b0 0%,#ff9a3c 45%,rgba(255,154,60,0) 75%);
+  bottom:4px;right:2px;animation:sunPulse 4s ease-in-out infinite;animation-delay:1.8s;
+}
+@keyframes sunPulse{0%,100%{opacity:0.7;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+.login-logo-text{}
+.login-logo-title{font-family:var(--display);font-size:18px;font-weight:700;color:var(--text);letter-spacing:0.15em;line-height:1}
+.login-logo-sub{font-family:var(--mono);font-size:9px;color:var(--muted2);letter-spacing:0.12em;margin-top:4px;text-transform:uppercase}
+.login-hint{font-family:var(--mono);font-size:11px;color:var(--muted2);margin-bottom:22px;line-height:1.7;border-left:2px solid var(--border2);padding-left:10px}
 .login-field{margin-bottom:14px}
-.login-label{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.06em;margin-bottom:6px}
-.login-input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:10px 12px;border-radius:7px;outline:none;transition:border-color 0.15s}
-.login-input:focus{border-color:var(--accent2)}
+.login-label{font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
+.login-input{
+  width:100%;background:var(--bg3);border:1px solid var(--border);
+  color:var(--text);font-family:var(--mono);font-size:12px;
+  padding:10px 12px;outline:none;transition:border-color var(--transition),box-shadow var(--transition);
+  border-radius:0;
+}
+.login-input:focus{border-color:var(--accent2);box-shadow:0 0 0 1px rgba(90,184,216,0.15)}
 .login-input::placeholder{color:var(--muted)}
-.login-orgid{font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:18px;letter-spacing:0.03em}
-#login-btn{width:100%;padding:11px;background:var(--bg3);color:var(--muted);border:1px solid var(--border2);border-radius:7px;font-size:14px;font-weight:600;font-family:var(--sans);cursor:not-allowed;transition:all 0.15s}
-#login-btn.ready{background:var(--accent);color:#000;border-color:var(--accent);cursor:pointer}
-#login-btn.ready:hover{background:#00efc0}
+.login-orgid{font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);padding:8px 12px;margin-bottom:18px;letter-spacing:0.03em}
+#login-btn{
+  width:100%;padding:12px;background:transparent;color:var(--muted2);
+  border:1px solid var(--border);font-family:var(--display);font-size:13px;
+  font-weight:600;letter-spacing:0.12em;cursor:not-allowed;transition:all var(--transition);
+  text-transform:uppercase;
+}
+#login-btn.ready{
+  background:var(--bg3);color:var(--accent);border-color:var(--accent);
+  cursor:pointer;box-shadow:0 0 20px rgba(232,160,64,0.1);
+}
+#login-btn.ready:hover{background:rgba(232,160,64,0.08);box-shadow:0 0 30px rgba(232,160,64,0.18)}
 #login-error{margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--danger);min-height:16px}
 #email-hint{margin-top:5px;font-family:var(--mono);font-size:10px;min-height:14px}
-.login-footer{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.7}
-.login-footer a{color:var(--accent2)}
+.login-footer{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted2);line-height:1.7;font-family:var(--mono)}
+.login-footer a{color:var(--accent2);text-decoration:none}
+.login-footer a:hover{text-decoration:underline}
 
-/* ── App shell ── */
+/* ══ APP SHELL ════════════════════════════════════════════════════════════════════ */
 #app-shell{display:none;flex-direction:column;height:100vh}
-header{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:100}
-.logo{display:flex;align-items:center;gap:10px}
-.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;font-family:var(--mono)}
-.logo-text{font-size:15px;font-weight:600;letter-spacing:-0.3px}
-.logo-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px}
-.header-right{display:flex;align-items:center;gap:12px}
-#org-site-select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;padding:6px 12px;border-radius:6px;cursor:pointer;outline:none}
-.status-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-.status-label{font-family:var(--mono);font-size:11px;color:var(--accent)}
-#user-pill{font-family:var(--mono);font-size:11px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.btn{padding:7px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--sans);font-size:13px;cursor:pointer;transition:all 0.15s}
-.btn:hover{border-color:var(--accent);color:var(--accent)}
-.btn-primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
-.btn-primary:hover{background:#00efc0;color:#000}
-.btn-danger{border-color:var(--danger);color:var(--danger)}
-.btn-danger:hover{background:rgba(255,71,87,0.1)}
-.btn-tshoot{display:flex;align-items:center;gap:7px;padding:7px 16px;border-radius:6px;border:1px solid rgba(0,149,255,0.5);background:rgba(0,149,255,0.08);color:var(--accent2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s}
-.btn-tshoot:hover{background:rgba(0,149,255,0.18);border-color:var(--accent2)}
+
+/* ── Header ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:52px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,#0e0b07 0%,#0a0804 100%);
+  position:sticky;top:0;z-index:100;flex-shrink:0;
+}
+header::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent 0%,rgba(232,160,64,0.25) 25%,rgba(196,79,53,0.18) 50%,rgba(232,160,64,0.25) 75%,transparent 100%);
+}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-twin-suns{position:relative;width:36px;height:36px;flex-shrink:0}
+.logo-sun-a{
+  position:absolute;width:22px;height:22px;border-radius:50%;
+  background:radial-gradient(circle,#ffd475 0%,#e8973a 40%,rgba(232,150,58,0) 70%);
+  top:3px;left:2px;animation:sunPulse 5s ease-in-out infinite;
+}
+.logo-sun-b{
+  position:absolute;width:16px;height:16px;border-radius:50%;
+  background:radial-gradient(circle,#fff0c0 0%,#ff9a3c 40%,rgba(255,154,60,0) 70%);
+  bottom:3px;right:2px;animation:sunPulse 5s ease-in-out infinite;animation-delay:2s;
+}
+.logo-text{display:flex;flex-direction:column;gap:1px}
+.logo-title{font-family:var(--display);font-size:16px;font-weight:700;letter-spacing:0.2em;color:var(--text);line-height:1}
+.logo-subtitle{font-family:var(--mono);font-size:8px;color:var(--muted2);letter-spacing:0.14em;text-transform:uppercase}
+.header-center{flex:1;display:flex;justify-content:center}
+.header-right{display:flex;align-items:center;gap:10px}
+#org-site-select{
+  background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  font-family:var(--sans);font-size:13px;font-weight:500;padding:5px 10px;
+  cursor:pointer;outline:none;transition:border-color var(--transition);
+}
+#org-site-select:hover,#org-site-select:focus{border-color:var(--border2)}
+.status-cluster{display:flex;align-items:center;gap:7px}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 2.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 6px var(--ok)}50%{opacity:0.5;box-shadow:0 0 2px var(--ok)}}
+.status-label{font-family:var(--mono);font-size:10px;color:var(--ok);letter-spacing:0.08em}
+#user-pill{font-family:var(--mono);font-size:10px;color:var(--muted2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0.04em}
+.btn{
+  padding:6px 14px;border:1px solid var(--border2);background:transparent;
+  color:var(--muted2);font-family:var(--sans);font-size:13px;font-weight:500;
+  cursor:pointer;transition:all var(--transition);letter-spacing:0.04em;
+}
+.btn:hover{border-color:var(--accent);color:var(--accent);background:var(--glow-amber)}
+.btn-primary{background:var(--bg3);color:var(--accent);border-color:var(--accent);font-weight:600;box-shadow:0 0 12px rgba(232,160,64,0.08)}
+.btn-primary:hover{background:rgba(232,160,64,0.1);box-shadow:0 0 20px rgba(232,160,64,0.15)}
+.btn-danger{border-color:rgba(201,79,53,0.5);color:var(--danger)}
+.btn-danger:hover{background:rgba(201,79,53,0.1);border-color:var(--danger)}
+.btn-tshoot{
+  display:flex;align-items:center;gap:7px;padding:6px 14px;
+  border:1px solid rgba(90,184,216,0.4);background:rgba(90,184,216,0.05);
+  color:var(--accent2);font-family:var(--sans);font-size:13px;font-weight:500;
+  cursor:pointer;transition:all var(--transition);letter-spacing:0.03em;
+}
+.btn-tshoot:hover{background:rgba(90,184,216,0.1);border-color:var(--accent2)}
 
 /* ── Layout ── */
 .app-body{display:flex;flex:1;overflow:hidden}
-.sidebar{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;overflow-y:auto}
-.sidebar-section{padding:0 16px;margin-bottom:24px}
-.sidebar-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px}
-.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--muted);transition:all 0.1s;margin-bottom:2px}
-.nav-item:hover{background:var(--bg3);color:var(--text)}
-.nav-item.active{background:rgba(0,212,168,0.1);color:var(--accent)}
-.nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:10px}
-.nav-badge.warn{background:var(--warn);color:#000}
-.nav-badge.ok{background:rgba(0,212,168,0.2);color:var(--accent)}
-.nav-badge.info{background:rgba(0,149,255,0.2);color:var(--accent2)}
-.main{flex:1;overflow-y:auto;padding:24px 28px}
+
+/* ── Sidebar ── */
+.sidebar{
+  width:210px;min-width:210px;
+  background:linear-gradient(180deg,#0a0804 0%,#070503 100%);
+  border-right:1px solid var(--border);
+  padding:16px 0 0;overflow-y:auto;
+  display:flex;flex-direction:column;flex-shrink:0;
+}
+.sidebar-section{padding:0 12px;margin-bottom:20px}
+.sidebar-label{
+  font-family:var(--display);font-size:9px;color:var(--muted2);
+  letter-spacing:0.2em;text-transform:uppercase;margin-bottom:6px;
+  padding:0 4px;padding-bottom:5px;border-bottom:1px solid var(--border);
+}
+.nav-item{
+  display:flex;align-items:center;gap:8px;padding:7px 8px;
+  cursor:pointer;font-size:13px;font-weight:500;color:var(--muted2);
+  transition:all var(--transition);margin-bottom:1px;
+  border-left:2px solid transparent;letter-spacing:0.03em;
+}
+.nav-item:hover{color:var(--text);background:rgba(200,150,55,0.06);border-left-color:rgba(200,150,55,0.3)}
+.nav-item.active{color:var(--accent);background:rgba(232,160,64,0.07);border-left-color:var(--accent)}
+.nav-icon{font-size:11px;width:14px;text-align:center;flex-shrink:0}
+.nav-label{flex:1}
+.nav-badge{
+  margin-left:auto;background:rgba(201,79,53,0.25);color:var(--danger);
+  font-family:var(--mono);font-size:9px;padding:1px 5px;
+  font-weight:700;letter-spacing:0.05em;min-width:18px;text-align:center;
+}
+.nav-badge.warn{background:rgba(232,151,58,0.2);color:var(--warn)}
+.nav-badge.ok{background:rgba(68,196,154,0.15);color:var(--ok)}
+.nav-badge.info{background:rgba(90,184,216,0.15);color:var(--accent2)}
+.sidebar-spacer{flex:1}
+.sidebar-dunes{width:100%;height:70px;pointer-events:none;opacity:0.28;flex-shrink:0}
+
+/* ── Main ── */
+.main{flex:1;overflow-y:auto;padding:22px 26px;background:var(--bg)}
+
+/* ── Tab content ── */
+.tab-content{display:none}
+.tab-content.active{display:block;animation:tabReveal 0.2s ease-out}
+@keyframes tabReveal{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Section headers ── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.section-title{font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:0.1em;color:var(--text)}
+.section-sub{font-family:var(--mono);font-size:10px;color:var(--muted2);margin-top:4px;letter-spacing:0.04em}
 
 /* ── KPI cards ── */
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-.kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden}
-.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi-card{
+  background:var(--bg2);border:1px solid var(--border);
+  padding:16px 18px;position:relative;overflow:hidden;
+  transition:border-color var(--transition);
+}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px}
 .kpi-card.ok::before{background:var(--ok)}
 .kpi-card.warn::before{background:var(--warn)}
 .kpi-card.danger::before{background:var(--danger)}
 .kpi-card.info::before{background:var(--accent2)}
-.kpi-label{font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;font-family:var(--mono)}
-.kpi-value{font-size:28px;font-weight:600;letter-spacing:-1px;line-height:1}
-.kpi-value.ok{color:var(--ok)} .kpi-value.warn{color:var(--warn)} .kpi-value.danger{color:var(--danger)} .kpi-value.info{color:var(--accent2)}
-.kpi-sub{font-size:11px;color:var(--muted);margin-top:6px}
+.kpi-card:hover{border-color:var(--border2)}
+.kpi-label{font-family:var(--mono);font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px}
+.kpi-value{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-0.02em;line-height:1}
+.kpi-value.ok{color:var(--ok)}.kpi-value.warn{color:var(--warn)}.kpi-value.danger{color:var(--danger)}.kpi-value.info{color:var(--accent2)}
+.kpi-sub{font-family:var(--mono);font-size:10px;color:var(--muted2);margin-top:7px}
 
 /* ── Cards ── */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-.card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.card-title{font-size:13px;font-weight:500}
-.card-body{padding:18px}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.section-title{font-size:15px;font-weight:500}
-.section-sub{font-size:12px;color:var(--muted);margin-top:2px}
-.tab-content{display:none} .tab-content.active{display:block}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.card{
+  background:var(--bg2);border:1px solid var(--border);overflow:hidden;
+  transition:border-color var(--transition);
+}
+.card:hover{border-color:rgba(200,150,55,0.28)}
+.card-header{
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.card-title{font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text)}
+.card-body{padding:16px}
 
 /* ── Tables ── */
 .ap-table{width:100%;border-collapse:collapse}
-.ap-table th{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:0.05em}
-.ap-table td{padding:10px 12px;font-size:12px;border-bottom:1px solid var(--border)}
+.ap-table th{
+  font-family:var(--mono);font-size:9px;color:var(--muted2);text-align:left;
+  padding:8px 12px;border-bottom:1px solid var(--border);
+  text-transform:uppercase;letter-spacing:0.1em;background:rgba(7,5,4,0.6);
+}
+.ap-table td{padding:9px 12px;font-size:12px;border-bottom:1px solid var(--border);font-weight:400}
 .ap-table tr:last-child td{border-bottom:none}
-.ap-table tr:hover td{background:rgba(255,255,255,0.02)}
+.ap-table tr:hover td{background:rgba(200,150,55,0.04)}
+.ap-table tr.clickable{cursor:pointer}
+.ap-table tr.clickable:hover td{background:rgba(200,150,55,0.06)!important}
 .ap-name{font-family:var(--mono);font-size:11px;color:var(--accent2)}
-.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-family:var(--mono)}
-.tag.ok{background:rgba(0,212,168,0.1);color:var(--ok)}
-.tag.warn{background:rgba(245,166,35,0.1);color:var(--warn)}
-.tag.danger{background:rgba(255,71,87,0.1);color:var(--danger)}
-.tag.info{background:rgba(0,149,255,0.1);color:var(--accent2)}
+
+/* ── Tags ── */
+.tag{display:inline-block;padding:2px 7px;font-size:9px;font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase;font-weight:700}
+.tag.ok{background:rgba(68,196,154,0.12);color:var(--ok);border:1px solid rgba(68,196,154,0.2)}
+.tag.warn{background:rgba(232,151,58,0.12);color:var(--warn);border:1px solid rgba(232,151,58,0.2)}
+.tag.danger{background:rgba(201,79,53,0.12);color:var(--danger);border:1px solid rgba(201,79,53,0.2)}
+.tag.info{background:rgba(90,184,216,0.12);color:var(--accent2);border:1px solid rgba(90,184,216,0.2)}
 
 /* ── Event log ── */
 .event-log{max-height:300px;overflow-y:auto}
-.event-item{padding:9px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start}
+.event-item{padding:7px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start}
 .event-item:last-child{border-bottom:none}
-.event-level{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;white-space:nowrap}
-.event-level.INFO{background:rgba(0,149,255,0.15);color:var(--accent2)}
-.event-level.WARN{background:rgba(245,166,35,0.15);color:var(--warn)}
-.event-level.OK{background:rgba(0,212,168,0.15);color:var(--accent)}
-.event-level.ERR{background:rgba(255,71,87,0.15);color:var(--danger)}
-.event-msg{font-size:12px;line-height:1.5;color:var(--muted)}
+.event-level{font-family:var(--mono);font-size:9px;padding:2px 6px;font-weight:700;white-space:nowrap;letter-spacing:0.06em}
+.event-level.INFO{background:rgba(90,184,216,0.12);color:var(--accent2)}
+.event-level.WARN{background:rgba(232,151,58,0.12);color:var(--warn)}
+.event-level.OK{background:rgba(68,196,154,0.12);color:var(--ok)}
+.event-level.ERR{background:rgba(201,79,53,0.12);color:var(--danger)}
+.event-msg{font-size:11px;line-height:1.5;color:var(--muted2);font-family:var(--mono)}
 .event-msg strong{color:var(--text)}
 .event-time{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap}
 
 /* ── AI chat ── */
-#chat-messages{height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
-.chat-user{background:rgba(0,149,255,0.15);border:1px solid rgba(0,149,255,0.3);margin-left:auto;max-width:80%}
-.chat-ai{background:var(--bg3);border:1px solid var(--border2);max-width:90%}
-.chat-bubble{padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.6;font-family:var(--mono);white-space:pre-wrap;word-break:break-word}
-.marvis-input{flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:9px 12px;border-radius:6px;outline:none;transition:border-color 0.15s}
+#chat-messages{height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
+.chat-bubble{padding:10px 14px;font-size:12px;line-height:1.7;font-family:var(--mono);white-space:pre-wrap;word-break:break-word}
+.chat-user{background:rgba(90,184,216,0.08);border:1px solid rgba(90,184,216,0.2);margin-left:auto;max-width:82%}
+.chat-ai{background:var(--bg3);border:1px solid var(--border);max-width:92%}
+.marvis-input{
+  flex:1;background:var(--bg3);border:1px solid var(--border2);
+  color:var(--text);font-family:var(--mono);font-size:12px;padding:9px 12px;
+  outline:none;transition:border-color var(--transition);
+}
 .marvis-input:focus{border-color:var(--accent)}
+.marvis-input::placeholder{color:var(--muted)}
 
-/* ── Troubleshoot drawer ── */
-.tshoot-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:flex-start;justify-content:center;padding-top:60px}
+/* ── Troubleshoot overlay ── */
+.tshoot-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:flex-start;justify-content:center;padding-top:60px}
 .tshoot-overlay.open{display:flex}
-.tshoot-drawer{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:680px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.6);animation:slideDown 0.18s ease}
-@keyframes slideDown{from{transform:translateY(-14px);opacity:0}to{transform:translateY(0);opacity:1}}
-.tshoot-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid var(--border)}
-.tshoot-close{width:28px;height:28px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.tshoot-close:hover{color:var(--text)}
-.tshoot-body{padding:20px 22px}
-.tshoot-input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:9px 12px 9px 34px;border-radius:7px;outline:none}
+.tshoot-drawer{
+  background:var(--bg2);border:1px solid var(--border2);
+  width:680px;max-width:95vw;max-height:80vh;overflow-y:auto;
+  box-shadow:0 32px 80px rgba(0,0,0,0.8),0 0 0 1px rgba(200,150,55,0.06);
+  animation:slideDown 0.2s ease-out;
+}
+@keyframes slideDown{from{transform:translateY(-12px);opacity:0}to{transform:translateY(0);opacity:1}}
+.tshoot-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 12px;border-bottom:1px solid var(--border);
+}
+.tshoot-close{
+  width:28px;height:28px;border:1px solid var(--border2);background:transparent;
+  color:var(--muted2);font-size:14px;cursor:pointer;display:flex;
+  align-items:center;justify-content:center;transition:all var(--transition);
+}
+.tshoot-close:hover{color:var(--text);border-color:var(--accent)}
+.tshoot-body{padding:18px 20px}
+.tshoot-input{
+  width:100%;background:var(--bg3);border:1px solid var(--border2);
+  color:var(--text);font-family:var(--mono);font-size:13px;
+  padding:9px 12px 9px 34px;outline:none;
+  transition:border-color var(--transition);
+}
 .tshoot-input:focus{border-color:var(--accent2)}
 .tshoot-input::placeholder{color:var(--muted)}
-.tshoot-type-btn{padding:5px 12px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--muted);font-size:11px;font-family:var(--mono);cursor:pointer}
-.tshoot-type-btn.active{border-color:var(--accent2);color:var(--accent2);background:rgba(0,149,255,0.08)}
-.tshoot-result{background:var(--bg3);border:1px solid var(--border);border-radius:8px;min-height:160px;padding:16px;font-family:var(--mono);font-size:12px;line-height:1.8}
-.tr-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px}
-.tr-pill{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;margin-right:4px;margin-bottom:4px}
-.tr-pill.ok{background:rgba(0,212,168,0.12);color:var(--ok)}
-.tr-pill.warn{background:rgba(245,166,35,0.12);color:var(--warn)}
-.tr-pill.danger{background:rgba(255,71,87,0.12);color:var(--danger)}
-.tr-pill.info{background:rgba(0,149,255,0.12);color:var(--accent2)}
+.tshoot-type-btn{
+  padding:4px 12px;border:1px solid var(--border);background:transparent;
+  color:var(--muted2);font-size:11px;font-family:var(--mono);cursor:pointer;
+  letter-spacing:0.06em;transition:all var(--transition);text-transform:uppercase;
+}
+.tshoot-type-btn:hover{border-color:var(--border2);color:var(--text)}
+.tshoot-type-btn.active{border-color:var(--accent2);color:var(--accent2);background:rgba(90,184,216,0.08)}
+.tshoot-result{
+  background:var(--bg3);border:1px solid var(--border);
+  min-height:160px;padding:16px;font-family:var(--mono);font-size:12px;line-height:1.8;
+}
+.tr-label{font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;font-family:var(--mono)}
+.tr-pill{display:inline-block;padding:2px 8px;font-size:9px;margin-right:4px;margin-bottom:4px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em}
+.tr-pill.ok{background:rgba(68,196,154,0.12);color:var(--ok);border:1px solid rgba(68,196,154,0.2)}
+.tr-pill.warn{background:rgba(232,151,58,0.12);color:var(--warn);border:1px solid rgba(232,151,58,0.2)}
+.tr-pill.danger{background:rgba(201,79,53,0.12);color:var(--danger);border:1px solid rgba(201,79,53,0.2)}
+.tr-pill.info{background:rgba(90,184,216,0.12);color:var(--accent2);border:1px solid rgba(90,184,216,0.2)}
 
-/* ── Marvis tile ── */
-.marvis-action-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+/* ── Marvis tiles ── */
+.marvis-action-item{display:flex;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
 .marvis-action-item:last-child{border-bottom:none}
-.marvis-action-icon{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.marvis-action-icon.danger{background:rgba(255,71,87,0.12);color:var(--danger)}
-.marvis-action-icon.warn{background:rgba(245,166,35,0.12);color:var(--warn)}
-.marvis-action-icon.ok{background:rgba(0,212,168,0.12);color:var(--ok)}
-.marvis-action-icon.info{background:rgba(0,149,255,0.12);color:var(--accent2)}
-.marvis-action-title{font-size:12px;font-weight:500;margin-bottom:2px}
-.marvis-action-sub{font-size:11px;color:var(--muted);font-family:var(--mono)}
-.marvis-action-count{margin-left:auto;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap;align-self:center}
-.marvis-action-count.danger{background:rgba(255,71,87,0.15);color:var(--danger)}
-.marvis-action-count.warn{background:rgba(245,166,35,0.15);color:var(--warn)}
-.marvis-action-count.ok{background:rgba(0,212,168,0.15);color:var(--ok)}
-.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.mini-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
-.mini-label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px}
-.mini-score{font-size:22px;font-weight:600;line-height:1;letter-spacing:-0.5px}
-.mini-score.ok{color:var(--ok)} .mini-score.warn{color:var(--warn)} .mini-score.danger{color:var(--danger)} .mini-score.info{color:var(--accent2)}
-.mini-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:6px;overflow:hidden}
-.mini-bar-fill{height:100%;border-radius:2px;transition:width 0.4s ease}
-.portal-link{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--accent2);text-decoration:none;padding:3px 8px;border:1px solid rgba(0,149,255,0.3);border-radius:4px;transition:all 0.15s}
-.portal-link:hover{background:rgba(0,149,255,0.08);border-color:var(--accent2)}
+.marvis-action-icon{width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.marvis-action-icon.danger{background:rgba(201,79,53,0.12);color:var(--danger);border:1px solid rgba(201,79,53,0.2)}
+.marvis-action-icon.warn{background:rgba(232,151,58,0.12);color:var(--warn);border:1px solid rgba(232,151,58,0.2)}
+.marvis-action-icon.ok{background:rgba(68,196,154,0.12);color:var(--ok);border:1px solid rgba(68,196,154,0.2)}
+.marvis-action-icon.info{background:rgba(90,184,216,0.12);color:var(--accent2);border:1px solid rgba(90,184,216,0.2)}
+.marvis-action-title{font-size:12px;font-weight:600;margin-bottom:2px;letter-spacing:0.02em}
+.marvis-action-sub{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.marvis-action-count{margin-left:auto;font-family:var(--mono);font-size:10px;padding:2px 8px;white-space:nowrap;align-self:center;font-weight:700}
+.marvis-action-count.danger{background:rgba(201,79,53,0.12);color:var(--danger)}
+.marvis-action-count.warn{background:rgba(232,151,58,0.12);color:var(--warn)}
+.marvis-action-count.ok{background:rgba(68,196,154,0.12);color:var(--ok)}
 
-/* ── Misc ── */
-.spinner-sm{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+/* ── Mini grid (SLE) ── */
+.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.mini-card{background:var(--bg3);border:1px solid var(--border);padding:12px 14px}
+.mini-label{font-family:var(--mono);font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px}
+.mini-score{font-family:var(--display);font-size:22px;font-weight:700;line-height:1}
+.mini-score.ok{color:var(--ok)}.mini-score.warn{color:var(--warn)}.mini-score.danger{color:var(--danger)}.mini-score.info{color:var(--accent2)}
+.mini-bar{height:2px;background:var(--border);margin-top:8px;overflow:hidden}
+.mini-bar-fill{height:100%;transition:width 0.5s ease}
+.sle-sections{display:flex;flex-direction:column;gap:14px}
+.sle-section-hdr{font-family:var(--mono);font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.sle-section-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── Portal link ── */
+.portal-link{
+  display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;
+  color:var(--accent);text-decoration:none;padding:3px 8px;
+  border:1px solid rgba(232,160,64,0.3);transition:all var(--transition);
+  text-transform:uppercase;letter-spacing:0.06em;
+}
+.portal-link:hover{background:var(--glow-amber);border-color:var(--accent)}
+
+/* ── Device detail modal ── */
+.device-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:600;align-items:flex-start;justify-content:center;padding-top:50px}
+.device-modal-overlay.open{display:flex}
+.device-modal{
+  background:var(--bg2);border:1px solid var(--border2);
+  width:840px;max-width:96vw;max-height:85vh;overflow-y:auto;
+  box-shadow:0 32px 80px rgba(0,0,0,0.85);animation:slideDown 0.2s ease-out;
+}
+.device-modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 12px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--bg2);z-index:1;
+}
+.device-modal-title{display:flex;align-items:center;gap:10px}
+.device-modal-name{font-family:var(--mono);font-size:14px;color:var(--accent2);font-weight:700}
+.device-modal-body{padding:20px}
+.detail-section{margin-bottom:18px}
+.detail-section-title{
+  font-family:var(--display);font-size:9px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:0.16em;margin-bottom:10px;
+  padding-bottom:5px;border-bottom:1px solid var(--border);
+}
+.detail-info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.detail-item{background:var(--bg3);border:1px solid var(--border);padding:10px 12px}
+.detail-item-label{font-family:var(--mono);font-size:9px;color:var(--muted2);text-transform:uppercase;margin-bottom:4px;letter-spacing:0.08em}
+.detail-item-val{font-family:var(--mono);font-size:11px;color:var(--text);word-break:break-all}
+.radio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.radio-card{background:var(--bg3);border:1px solid var(--border);padding:12px}
+.radio-band-hdr{font-family:var(--mono);font-size:10px;color:var(--accent2);margin-bottom:8px;font-weight:700;display:flex;align-items:center;justify-content:space-between;letter-spacing:0.06em}
+.radio-stat-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;padding:3px 0;border-bottom:1px solid var(--border)}
+.radio-stat-row:last-child{border-bottom:none}
+.radio-stat-k{color:var(--muted2)}.radio-stat-v{color:var(--text)}
+.port-stat-grid,.wan-if-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+
+/* ── Spinner ── */
+.spinner-sm{display:inline-block;width:12px;height:12px;border:1.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:10px}
 </style>
 </head>
 <body>
 
-<!-- ══ LOGIN ═══════════════════════════════════════════════════════════════════ -->
+<!-- ══ LOGIN ══════════════════════════════════════════════════════════════════ -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <div class="login-logo-icon">TAT</div>
-      <div>
-        <div style="font-size:16px;font-weight:600">Tatooine</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">MIST NETWORK INTELLIGENCE</div>
+      <div class="login-logo-icon">
+        <div class="login-logo-sun-a"></div>
+        <div class="login-logo-sun-b"></div>
+      </div>
+      <div class="login-logo-text">
+        <div class="login-logo-title">TATOOINE</div>
+        <div class="login-logo-sub">Mist Network Intelligence</div>
       </div>
     </div>
     <div class="login-hint">
       // tatooine.thewifijedi.com<br>
-      // @hpe.com · @juniper.net · Token held in session memory — never stored.
+      // @hpe.com · @juniper.net · Token held in session memory only.
     </div>
     <div class="login-field">
-      <div class="login-label">EMAIL</div>
+      <div class="login-label">Email</div>
       <input id="login-email" class="login-input" type="email"
         placeholder="you@hpe.com or you@juniper.net"
         oninput="onEmailInput(this.value)"
@@ -211,24 +455,24 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
       <div id="email-hint"></div>
     </div>
     <div class="login-field">
-      <div class="login-label">MIST API TOKEN</div>
+      <div class="login-label">Mist API Token</div>
       <input id="login-token" class="login-input" type="password"
         placeholder="Paste your Mist API token"
         oninput="onTokenInput()"
         onkeydown="if(event.key==='Enter')document.getElementById('login-orgid-input').focus()">
     </div>
     <div class="login-field">
-      <div class="login-label">MIST ORG ID</div>
+      <div class="login-label">Mist Org ID</div>
       <input id="login-orgid-input" class="login-input" type="text"
         placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
         oninput="onTokenInput()"
         onkeydown="if(event.key==='Enter')doLogin()">
       <div id="orgid-hint" style="margin-top:5px;font-family:var(--mono);font-size:10px;min-height:14px"></div>
     </div>
-    <button id="login-btn" onclick="doLogin()" disabled>Sign In →</button>
+    <button id="login-btn" onclick="doLogin()" disabled>Authenticate →</button>
     <div id="login-error"></div>
     <div class="login-footer">
-      Get your token &amp; org ID: <a href="https://manage.mist.com/user.html#!api" target="_blank">manage.mist.com → My Profile → API Token</a>
+      Token &amp; Org ID: <a href="https://manage.mist.com/user.html#!api" target="_blank">manage.mist.com → My Profile → API Token</a>
     </div>
   </div>
 </div>
@@ -237,22 +481,25 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 <div id="app-shell">
   <header>
     <div class="logo">
-      <div class="logo-icon">TAT</div>
-      <div>
-        <div class="logo-text">Tatooine</div>
-        <div class="logo-sub">MIST NETWORK INTELLIGENCE</div>
+      <div class="logo-twin-suns">
+        <div class="logo-sun-a"></div>
+        <div class="logo-sun-b"></div>
+      </div>
+      <div class="logo-text">
+        <div class="logo-title">TATOOINE</div>
+        <div class="logo-subtitle">Mist Network Intelligence</div>
       </div>
     </div>
     <div class="header-right">
       <select id="org-site-select" onchange="filterBySite(this.value)">
         <option value="">All Sites</option>
       </select>
-      <div style="display:flex;align-items:center;gap:6px">
+      <div class="status-cluster">
         <div class="status-dot"></div>
         <span class="status-label" id="conn-label">LIVE</span>
       </div>
       <button class="btn-tshoot" onclick="openTshoot()">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
         Troubleshoot
       </button>
       <button class="btn btn-primary" onclick="refreshAll()">↺ Refresh</button>
@@ -265,21 +512,63 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
     <nav class="sidebar">
       <div class="sidebar-section">
         <div class="sidebar-label">Overview</div>
-        <div class="nav-item active" onclick="showTab('dashboard');setActive(this)">◈ Dashboard</div>
-        <div class="nav-item" onclick="showTab('aps');setActive(this)">◉ Access Points <span class="nav-badge info" id="badge-aps">—</span></div>
+        <div class="nav-item active" onclick="showTab('dashboard');setActive(this)">
+          <span class="nav-icon">◈</span><span class="nav-label">Dashboard</span>
+        </div>
+        <div class="nav-item" onclick="showTab('aps');setActive(this)">
+          <span class="nav-icon">◉</span><span class="nav-label">Access Points</span>
+          <span class="nav-badge info" id="badge-aps">—</span>
+        </div>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-label">Network</div>
-        <div class="nav-item" onclick="showTab('wlans');setActive(this)">◈ WLANs <span class="nav-badge ok" id="badge-wlans">—</span></div>
-        <div class="nav-item" onclick="showTab('switches');setActive(this)">◫ Switches <span class="nav-badge ok" id="badge-switches">—</span></div>
-        <div class="nav-item" onclick="showTab('wan');setActive(this)">◭ WAN / Gateways <span class="nav-badge ok" id="badge-wan">—</span></div>
+        <div class="nav-item" onclick="showTab('wlans');setActive(this)">
+          <span class="nav-icon">◈</span><span class="nav-label">WLANs</span>
+          <span class="nav-badge ok" id="badge-wlans">—</span>
+        </div>
+        <div class="nav-item" onclick="showTab('switches');setActive(this)">
+          <span class="nav-icon">◫</span><span class="nav-label">Switches</span>
+          <span class="nav-badge ok" id="badge-switches">—</span>
+        </div>
+        <div class="nav-item" onclick="showTab('wan');setActive(this)">
+          <span class="nav-icon">◭</span><span class="nav-label">WAN / Gateways</span>
+          <span class="nav-badge ok" id="badge-wan">—</span>
+        </div>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-label">Intelligence</div>
-        <div class="nav-item" onclick="showTab('ai');setActive(this)">✦ AI Assistant</div>
-        <div class="nav-item" onclick="showTab('n8n');setActive(this)">⚡ n8n AI Ops <span class="nav-badge info" id="badge-n8n">—</span></div>
-        <div class="nav-item" onclick="showTab('log');setActive(this)">≡ Audit Log</div>
+        <div class="nav-item" onclick="showTab('ai');setActive(this)">
+          <span class="nav-icon">✦</span><span class="nav-label">AI Assistant</span>
+        </div>
+        <div class="nav-item" onclick="showTab('n8n');setActive(this)">
+          <span class="nav-icon">⚡</span><span class="nav-label">n8n AI Ops</span>
+          <span class="nav-badge info" id="badge-n8n">—</span>
+        </div>
+        <div class="nav-item" onclick="showTab('insights');setActive(this)">
+          <span class="nav-icon">◎</span><span class="nav-label">Org Insights</span>
+          <span class="nav-badge ok" id="badge-insights" style="display:none">●</span>
+        </div>
+        <div class="nav-item" onclick="showTab('nac');setActive(this)">
+          <span class="nav-icon">⬡</span><span class="nav-label">Access Assurance</span>
+          <span class="nav-badge info" id="badge-nac">—</span>
+        </div>
+        <div class="nav-item" onclick="showTab('log');setActive(this)">
+          <span class="nav-icon">≡</span><span class="nav-label">Audit Log</span>
+        </div>
       </div>
+      <div class="sidebar-spacer"></div>
+      <svg class="sidebar-dunes" viewBox="0 0 210 70" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#c9a84c" stop-opacity="0.7"/>
+            <stop offset="100%" stop-color="#6b3a10" stop-opacity="0.2"/>
+          </linearGradient>
+        </defs>
+        <path d="M0 50 Q25 12 60 28 Q95 44 135 18 Q165 4 210 32 L210 70 L0 70Z" fill="url(#dg)" opacity="0.5"/>
+        <path d="M0 62 Q35 30 80 48 Q120 62 160 40 Q185 28 210 50 L210 70 L0 70Z" fill="url(#dg)" opacity="0.7"/>
+        <ellipse cx="52" cy="26" rx="14" ry="6" fill="#ffd475" opacity="0.15"/>
+        <ellipse cx="70" cy="20" rx="9" ry="4" fill="#ff9a3c" opacity="0.12"/>
+      </svg>
     </nav>
 
     <main class="main">
@@ -289,7 +578,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
         <div class="section-header">
           <div>
             <div class="section-title" id="dash-title">Network Overview</div>
-            <div class="section-sub">Last updated: <span id="last-update">—</span></div>
+            <div class="section-sub">Last sync: <span id="last-update">—</span></div>
           </div>
         </div>
         <div class="kpi-row">
@@ -300,53 +589,44 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
         </div>
         <div class="grid-2">
           <div class="card">
-            <div class="card-header"><span class="card-title">Site Health</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="site-health-lbl">LOADING</span></div>
+            <div class="card-header"><span class="card-title">Site Health</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="site-health-lbl">LOADING</span></div>
             <div class="card-body"><div id="site-rows"><span class="spinner-sm"></span></div></div>
           </div>
           <div class="card">
-            <div class="card-header"><span class="card-title">Recent Audit Events</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">LIVE</span></div>
-            <div class="card-body" style="padding:10px 18px"><div class="event-log" id="event-feed"></div></div>
+            <div class="card-header"><span class="card-title">Recent Audit Events</span><span style="font-family:var(--mono);font-size:9px;color:var(--ok)">LIVE</span></div>
+            <div class="card-body" style="padding:10px 16px"><div class="event-log" id="event-feed"></div></div>
           </div>
         </div>
-        <div class="card">
+        <div class="card" style="margin-bottom:20px">
           <div class="card-header"><span class="card-title">Access Points</span><button class="btn" style="font-size:11px;padding:4px 10px" onclick="loadAPs()">Refresh</button></div>
           <div class="card-body" style="padding:0">
             <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>Clients</th><th>Status</th></tr></thead>
-            <tbody id="dash-ap-body"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// Loading APs...</td></tr></tbody></table>
+            <tbody id="dash-ap-body"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Fetching device data...</td></tr></tbody></table>
           </div>
         </div>
-
-        <!-- Marvis Intelligence -->
-        <div class="grid-2" style="margin-top:0">
+        <div class="grid-2">
           <div class="card">
             <div class="card-header">
-              <div>
-                <span class="card-title">Marvis Actions</span>
-                <span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:8px">AI-RECOMMENDED</span>
-              </div>
+              <div><span class="card-title">Marvis Actions</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-left:8px">AI-RECOMMENDED</span></div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span id="marvis-actions-stamp" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></span>
+                <span id="marvis-actions-stamp" style="font-family:var(--mono);font-size:9px;color:var(--muted2)"></span>
                 <a class="portal-link" data-marvis-portal="https://manage.mist.com/admin/?org_id=__ORG__#!virtualAssistant/action" href="#" target="_blank" rel="noopener">Portal ↗</a>
               </div>
             </div>
-            <div class="card-body" id="marvis-actions-body" style="padding:10px 18px">
-              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Loading actions...</span>
+            <div class="card-body" id="marvis-actions-body" style="padding:10px 16px">
+              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted2)">Loading actions...</span>
             </div>
           </div>
-
           <div class="card">
             <div class="card-header">
-              <div>
-                <span class="card-title">Marvis Minis</span>
-                <span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:8px">CONNECTIVITY</span>
-              </div>
+              <div><span class="card-title">Marvis Minis</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-left:8px">SLE SCORES</span></div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span id="marvis-minis-stamp" style="font-family:var(--mono);font-size:10px;color:var(--muted)">7d window</span>
+                <span id="marvis-minis-stamp" style="font-family:var(--mono);font-size:9px;color:var(--muted2)">7d window</span>
                 <a class="portal-link" data-marvis-portal="https://manage.mist.com/admin/?org_id=__ORG__#!marvisMini?timeInterval=7d&view=dashboard" href="#" target="_blank" rel="noopener">Portal ↗</a>
               </div>
             </div>
-            <div class="card-body" id="marvis-minis-body" style="padding:14px 18px">
-              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Loading connectivity data...</span>
+            <div class="card-body" id="marvis-minis-body" style="padding:14px 16px">
+              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted2)">Loading connectivity data...</span>
             </div>
           </div>
         </div>
@@ -357,8 +637,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
         <div class="section-header">
           <div><div class="section-title">Access Points</div><div class="section-sub" id="ap-sub">Loading...</div></div>
           <div style="display:flex;gap:8px">
-            <input id="ap-search" oninput="filterAPs()" placeholder="Search APs..." style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:6px;outline:none;width:220px">
-            <select id="ap-status-filter" onchange="filterAPs()" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:12px;padding:7px 10px;border-radius:6px;outline:none">
+            <input id="ap-search" oninput="filterAPs()" placeholder="Search APs..." style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;outline:none;width:200px;transition:border-color var(--transition)" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+            <select id="ap-status-filter" onchange="filterAPs()" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:12px;font-family:var(--sans);padding:7px 10px;outline:none;cursor:pointer">
               <option value="">All Status</option>
               <option value="connected">Online</option>
               <option value="disconnected">Offline</option>
@@ -379,7 +659,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
         </div>
         <div class="card"><div class="card-body" style="padding:0">
           <table class="ap-table"><thead><tr><th>SSID</th><th>Band</th><th>Security</th><th>Auth</th><th>VLAN</th><th>Enabled</th><th>Scope</th></tr></thead>
-          <tbody id="wlan-body"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// Loading WLANs...</td></tr></tbody>
+          <tbody id="wlan-body"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Loading WLANs...</td></tr></tbody>
         </table></div></div>
       </div>
 
@@ -397,7 +677,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
         </div>
         <div class="card"><div class="card-body" style="padding:0">
           <table class="ap-table"><thead><tr><th>Name</th><th>Model</th><th>Site</th><th>IP</th><th>Version</th><th>Uptime</th><th>PoE</th><th>Status</th></tr></thead>
-          <tbody id="sw-body"><tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// Loading switches...</td></tr></tbody>
+          <tbody id="sw-body"><tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Loading switches...</td></tr></tbody>
         </table></div></div>
       </div>
 
@@ -415,7 +695,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
         </div>
         <div class="card"><div class="card-body" style="padding:0">
           <table class="ap-table"><thead><tr><th>Name</th><th>Model</th><th>Site</th><th>IP</th><th>Version</th><th>Uptime</th><th>WAN IPs</th><th>Status</th></tr></thead>
-          <tbody id="wan-body"><tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// Loading gateways...</td></tr></tbody>
+          <tbody id="wan-body"><tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Loading gateways...</td></tr></tbody>
         </table></div></div>
       </div>
 
@@ -425,27 +705,23 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
           <div><div class="section-title">AI Assistant</div><div class="section-sub">Powered by Claude · Live access to your Mist org</div></div>
           <button class="btn" onclick="clearChat()" style="font-size:11px;padding:4px 10px">Clear Chat</button>
         </div>
-        <div class="grid-2" style="margin-bottom:0">
-          <div style="grid-column:1/-1">
-            <div class="card" style="margin-bottom:16px">
-              <div class="card-body">
-                <div id="chat-messages">
-                  <div class="chat-bubble chat-ai">Hello. I'm your Mist Network AI assistant powered by Claude. I have live access to your Mist org and can query devices, sites, WLANs, alarms, and more. What would you like to know?</div>
-                </div>
-                <div style="display:flex;gap:8px;margin-top:14px">
-                  <input class="marvis-input" id="chat-input"
-                    placeholder="Ask anything about your network... e.g. 'Which APs are offline?' or 'Show my WLANs'"
-                    onkeydown="if(event.key==='Enter')sendChat()">
-                  <button class="btn btn-primary" id="chat-send" onclick="sendChat()">Ask →</button>
-                </div>
-              </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-body">
+            <div id="chat-messages">
+              <div class="chat-bubble chat-ai">Hello. I'm your Mist Network AI assistant powered by Claude. I have live access to your Mist org and can query devices, sites, WLANs, alarms, and more. What would you like to know?</div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-              <div class="card" style="cursor:pointer" onclick="quickAsk('List all my sites and their details')"><div class="card-body" style="padding:12px 14px"><div style="font-size:12px;font-weight:500;margin-bottom:3px">Sites overview</div><div style="font-size:11px;color:var(--muted)">"List all my sites"</div></div></div>
-              <div class="card" style="cursor:pointer" onclick="quickAsk('Which access points are offline or disconnected?')"><div class="card-body" style="padding:12px 14px"><div style="font-size:12px;font-weight:500;margin-bottom:3px">Offline devices</div><div style="font-size:11px;color:var(--muted)">"Which APs are offline?"</div></div></div>
-              <div class="card" style="cursor:pointer" onclick="quickAsk('Show me all WLANs configured in my org')"><div class="card-body" style="padding:12px 14px"><div style="font-size:12px;font-weight:500;margin-bottom:3px">WLAN inventory</div><div style="font-size:11px;color:var(--muted)">"Show all WLANs"</div></div></div>
+            <div style="display:flex;gap:8px;margin-top:14px">
+              <input class="marvis-input" id="chat-input"
+                placeholder="Ask anything about your network... e.g. 'Which APs are offline?'"
+                onkeydown="if(event.key==='Enter')sendChat()">
+              <button class="btn btn-primary" id="chat-send" onclick="sendChat()">Send →</button>
             </div>
           </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div class="card" style="cursor:pointer" onclick="quickAsk('List all my sites and their details')"><div class="card-body" style="padding:12px 14px"><div style="font-size:13px;font-weight:600;margin-bottom:3px;font-family:var(--display);letter-spacing:0.06em;font-size:11px">Sites Overview</div><div style="font-size:11px;color:var(--muted2);font-family:var(--mono)">"List all my sites"</div></div></div>
+          <div class="card" style="cursor:pointer" onclick="quickAsk('Which access points are offline or disconnected?')"><div class="card-body" style="padding:12px 14px"><div style="font-size:13px;font-weight:600;margin-bottom:3px;font-family:var(--display);letter-spacing:0.06em;font-size:11px">Offline Devices</div><div style="font-size:11px;color:var(--muted2);font-family:var(--mono)">"Which APs are offline?"</div></div></div>
+          <div class="card" style="cursor:pointer" onclick="quickAsk('Show me all WLANs configured in my org')"><div class="card-body" style="padding:12px 14px"><div style="font-size:13px;font-weight:600;margin-bottom:3px;font-family:var(--display);letter-spacing:0.06em;font-size:11px">WLAN Inventory</div><div style="font-size:11px;color:var(--muted2);font-family:var(--mono)">"Show all WLANs"</div></div></div>
         </div>
       </div>
 
@@ -454,17 +730,15 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
         <div class="section-header">
           <div>
             <div class="section-title">n8n AI Ops</div>
-            <div class="section-sub">Mist AI Ops — Claude + Webhooks workflow at <span style="font-family:var(--mono);color:var(--accent2)" id="n8n-url-label"></span></div>
+            <div class="section-sub">Claude + Webhooks at <span style="font-family:var(--mono);color:var(--accent2)" id="n8n-url-label"></span></div>
           </div>
           <button class="btn" onclick="loadN8n()" style="font-size:11px;padding:4px 10px">Refresh</button>
         </div>
-
-        <!-- Status + webhook config -->
-        <div class="grid-2" style="margin-bottom:18px">
+        <div class="grid-2" style="margin-bottom:16px">
           <div class="card">
             <div class="card-header"><span class="card-title">Workflow Status</span></div>
             <div class="card-body" id="n8n-status-body">
-              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Checking n8n...</span>
+              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted2)">Checking n8n...</span>
             </div>
           </div>
           <div class="card">
@@ -472,27 +746,25 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
               <span class="card-title">Mist Webhook Config</span>
               <a href="https://workflows.thewifijedi.com/workflow/w9244MhHcbp1xbNB" target="_blank" rel="noopener" class="portal-link">Open Workflow ↗</a>
             </div>
-            <div class="card-body" style="padding:14px 18px">
+            <div class="card-body" style="padding:12px 16px">
               <div style="margin-bottom:10px">
-                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Production — point Mist Cloud here <span style="color:var(--ok)">● LIVE</span></div>
-                <div id="n8n-webhook-url" style="font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl('n8n-webhook-url')" title="Click to copy"></div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Production <span style="color:var(--ok)">● LIVE</span></div>
+                <div id="n8n-webhook-url" style="font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl('n8n-webhook-url')" title="Click to copy"></div>
               </div>
               <div style="margin-bottom:10px">
-                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Test — for workflow testing only <span style="color:var(--warn)">● TEST</span></div>
-                <div id="n8n-test-url" style="font-family:var(--mono);font-size:11px;color:var(--warn);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl('n8n-test-url')" title="Click to copy"></div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Test <span style="color:var(--warn)">● TEST</span></div>
+                <div id="n8n-test-url" style="font-family:var(--mono);font-size:11px;color:var(--warn);background:var(--bg3);border:1px solid var(--border);padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl('n8n-test-url')" title="Click to copy"></div>
               </div>
               <div>
-                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Tatooine relay (buffers events locally)</div>
-                <div id="n8n-relay-url" style="font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;word-break:break-all;cursor:pointer" onclick="copyWebhookUrl('n8n-relay-url')" title="Click to copy"></div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Tatooine Relay</div>
+                <div id="n8n-relay-url" style="font-family:var(--mono);font-size:11px;color:var(--muted2);background:var(--bg3);border:1px solid var(--border);padding:8px 12px;word-break:break-all;cursor:pointer" onclick="copyWebhookUrl('n8n-relay-url')" title="Click to copy"></div>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Quick actions -->
-        <div class="card" style="margin-bottom:18px">
-          <div class="card-header"><span class="card-title">Quick Actions</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">ROUTED VIA n8n mist-api</span></div>
-          <div class="card-body" style="padding:14px 18px">
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header"><span class="card-title">Quick Actions</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)">ROUTED VIA n8n</span></div>
+          <div class="card-body" style="padding:12px 16px">
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
               <button class="btn" onclick="n8nAction('get_sites')" style="font-size:12px">◈ Get Sites</button>
               <button class="btn" onclick="n8nActionWithSite('get_devices')" style="font-size:12px">◉ Get Devices</button>
@@ -500,33 +772,95 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
               <button class="btn" onclick="n8nAction('get_alarms')" style="font-size:12px">⚠ Get Alarms</button>
               <button class="btn btn-danger" onclick="n8nRestartDevice()" style="font-size:12px">↺ Restart Device</button>
             </div>
-            <div id="n8n-action-result" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--mono);font-size:11px;line-height:1.7;max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-word"></div>
+            <div id="n8n-action-result" style="display:none;background:var(--bg3);border:1px solid var(--border);padding:14px;font-family:var(--mono);font-size:11px;line-height:1.7;max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-word"></div>
           </div>
         </div>
-
-        <!-- Claude analyses from n8n -->
-        <div class="card" style="margin-bottom:18px">
+        <div class="card" style="margin-bottom:16px">
           <div class="card-header">
             <span class="card-title">Claude Analyses</span>
-            <span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="n8n-analyses-stamp">FROM n8n HIGH-PRIORITY EVENTS</span>
+            <span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="n8n-analyses-stamp">FROM n8n HIGH-PRIORITY EVENTS</span>
           </div>
-          <div class="card-body" style="padding:8px 18px">
-            <div id="n8n-analyses-body" style="font-family:var(--mono);font-size:11px;color:var(--muted)">
+          <div class="card-body" style="padding:8px 16px">
+            <div id="n8n-analyses-body" style="font-family:var(--mono);font-size:11px;color:var(--muted2)">
               // No analyses yet — high-priority Mist events trigger Claude via n8n
             </div>
           </div>
         </div>
-
-        <!-- Raw event feed -->
         <div class="card">
           <div class="card-header">
             <span class="card-title">Mist Event Feed</span>
-            <span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="n8n-events-stamp">RECEIVED VIA /webhook/mist</span>
+            <span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="n8n-events-stamp">RECEIVED VIA /webhook/mist</span>
           </div>
-          <div class="card-body" style="padding:8px 18px">
+          <div class="card-body" style="padding:8px 16px">
             <div class="event-log" id="n8n-events-body" style="max-height:280px">
-              <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0">// No events yet — configure Mist to send webhooks to the URL above</div>
+              <div style="font-family:var(--mono);font-size:11px;color:var(--muted2);padding:8px 0">// No events yet — configure Mist webhooks to the URL above</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORG INSIGHTS STREAM -->
+      <div id="tab-insights" class="tab-content">
+        <div class="section-header">
+          <div><div class="section-title">Org Insights</div><div class="section-sub">Live stream · Mist WebSocket <code style="font-family:var(--mono);font-size:10px;color:var(--accent2)">/orgs/{org}/insights/summary</code></div></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="insights-ws-status" style="font-family:var(--mono);font-size:11px;color:var(--muted2)">● Disconnected</span>
+            <button class="btn" onclick="toggleInsightsStream()" id="insights-btn" style="font-size:11px;padding:4px 12px">Connect</button>
+          </div>
+        </div>
+        <div class="kpi-row" id="insights-kpi-row" style="display:none">
+          <div class="kpi-card ok"><div class="kpi-label">Sites</div><div class="kpi-value ok" id="ins-sites">—</div></div>
+          <div class="kpi-card info"><div class="kpi-label">APs</div><div class="kpi-value info" id="ins-aps">—</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">Connected</div><div class="kpi-value ok" id="ins-aps-on">—</div></div>
+          <div class="kpi-card danger"><div class="kpi-label">Disconnected</div><div class="kpi-value danger" id="ins-aps-off">—</div></div>
+        </div>
+        <div class="grid-2" style="margin-bottom:16px" id="insights-detail-row">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Network Summary</span><span style="font-family:var(--mono);font-size:9px;color:var(--ok)" id="ins-last-update"></span></div>
+            <div class="card-body" id="ins-summary-body" style="padding:10px 16px">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--muted2)">// Connect to start receiving live insight data</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Client Activity</span></div>
+            <div class="card-body" id="ins-clients-body" style="padding:10px 16px">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--muted2)">// Waiting for stream data…</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Event Stream</span>
+            <button class="btn" onclick="clearInsightsLog()" style="font-size:10px;padding:3px 8px">Clear</button>
+          </div>
+          <div class="card-body" style="padding:8px 16px">
+            <div class="event-log" id="insights-log" style="max-height:420px;font-family:var(--mono);font-size:11px">
+              <div style="color:var(--muted2);padding:8px 0">// No events yet — click Connect above</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCESS ASSURANCE -->
+      <div id="tab-nac" class="tab-content">
+        <div class="section-header">
+          <div><div class="section-title">Access Assurance</div><div class="section-sub" id="nac-sub">NAC rules · 802.1X · Certificate-based access</div></div>
+          <button class="btn" onclick="loadNacRules()" style="font-size:11px;padding:4px 10px">Refresh</button>
+        </div>
+        <div class="kpi-row" id="nac-kpi-row" style="display:none">
+          <div class="kpi-card info"><div class="kpi-label">Total Rules</div><div class="kpi-value info" id="nac-kpi-total">—</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">Enabled</div><div class="kpi-value ok" id="nac-kpi-enabled">—</div></div>
+          <div class="kpi-card warn"><div class="kpi-label">Disabled</div><div class="kpi-value warn" id="nac-kpi-disabled">—</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">Allow Rules</div><div class="kpi-value ok" id="nac-kpi-allow">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <table class="ap-table">
+              <thead><tr><th>Order</th><th>Name</th><th>Action</th><th>Auth Type</th><th>Port Types</th><th>NAC Tags</th><th>Apply Tags</th><th>Status</th></tr></thead>
+              <tbody id="nac-body">
+                <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Loading NAC rules…</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -537,7 +871,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
           <div><div class="section-title">Audit Log</div><div class="section-sub" id="log-sub">Loading...</div></div>
           <button class="btn" onclick="loadLog()" style="font-size:11px;padding:4px 10px">Refresh</button>
         </div>
-        <div class="card"><div class="card-body" style="padding:8px 18px">
+        <div class="card"><div class="card-body" style="padding:8px 16px">
           <div class="event-log" id="full-log" style="max-height:none;padding:8px 0"></div>
         </div></div>
       </div>
@@ -546,20 +880,20 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
   </div>
 </div>
 
-<!-- ══ TROUBLESHOOT DRAWER ═══════════════════════════════════════════════════════ -->
+<!-- ══ TROUBLESHOOT DRAWER ════════════════════════════════════════════════════ -->
 <div class="tshoot-overlay" id="tshoot-overlay" onclick="if(event.target===this)closeTshoot()">
   <div class="tshoot-drawer">
     <div class="tshoot-header">
       <div>
-        <div style="font-size:15px;font-weight:600">Troubleshoot Connection</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--mono)">MAC address, username, or hostname → Mist Marvis</div>
+        <div style="font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:0.1em">Troubleshoot Connection</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted2);margin-top:3px">MAC address, username, or hostname → Mist Marvis</div>
       </div>
       <button class="tshoot-close" onclick="closeTshoot()">✕</button>
     </div>
     <div class="tshoot-body">
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <div style="flex:1;position:relative">
-          <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none">⌕</span>
+          <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted2);pointer-events:none">⌕</span>
           <input class="tshoot-input" id="tshoot-input"
             placeholder="MAC (aa:bb:cc:dd:ee:ff) or username / hostname"
             onkeydown="if(event.key==='Enter')runTshoot()"
@@ -568,22 +902,39 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
         <button class="btn btn-primary" onclick="runTshoot()" id="tshoot-btn">Troubleshoot</button>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--muted);font-family:var(--mono);align-self:center;margin-right:4px">Type:</span>
+        <span style="font-size:11px;color:var(--muted2);font-family:var(--mono);align-self:center;margin-right:4px">Type:</span>
         <button class="tshoot-type-btn active" data-type="wireless" onclick="setTshootType(this)">Wireless</button>
         <button class="tshoot-type-btn" data-type="wired" onclick="setTshootType(this)">Wired</button>
         <button class="tshoot-type-btn" data-type="wan" onclick="setTshootType(this)">WAN</button>
         <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-          <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">Site:</span>
-          <select id="tshoot-site" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:11px;padding:4px 9px;border-radius:6px;outline:none">
+          <span style="font-size:11px;color:var(--muted2);font-family:var(--mono)">Site:</span>
+          <select id="tshoot-site" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:11px;padding:4px 9px;outline:none">
             <option value="">All sites</option>
           </select>
         </div>
       </div>
-      <div id="tshoot-hint" style="font-size:11px;font-family:var(--mono);margin-bottom:12px;min-height:16px;color:var(--muted)"></div>
-      <div class="tshoot-result" id="tshoot-result" style="color:var(--muted)">
-        <span style="opacity:0.35">// Enter a MAC address, username, or hostname above.<br>
+      <div id="tshoot-hint" style="font-size:11px;font-family:var(--mono);margin-bottom:12px;min-height:16px;color:var(--muted2)"></div>
+      <div class="tshoot-result" id="tshoot-result" style="color:var(--muted2)">
+        <span style="opacity:0.4">// Enter a MAC address, username, or hostname above.<br>
 // Results are live from your Mist org via Marvis.</span>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DEVICE DETAIL MODAL ════════════════════════════════════════════════════ -->
+<div class="device-modal-overlay" id="device-modal-overlay" onclick="if(event.target===this)closeDeviceDetail()">
+  <div class="device-modal">
+    <div class="device-modal-header">
+      <div class="device-modal-title">
+        <span class="device-modal-name" id="device-modal-name">Device</span>
+        <span id="device-modal-model" style="font-family:var(--mono);font-size:11px;color:var(--muted2)"></span>
+        <span id="device-modal-status"></span>
+      </div>
+      <button class="tshoot-close" onclick="closeDeviceDetail()">✕</button>
+    </div>
+    <div class="device-modal-body" id="device-modal-body">
+      <span class="spinner-sm"></span>
     </div>
   </div>
 </div>
@@ -724,7 +1075,7 @@ function startApp() {
   document.getElementById('app-shell').style.display   = 'flex';
   document.getElementById('user-pill').textContent = SESSION.self?.email || '';
   loadAll();
-  setTimeout(() => { loadWlans(); loadSwitches(); loadWan(); loadLog(); loadN8n(); }, 1200);
+  setTimeout(() => { loadWlans(); loadSwitches(); loadWan(); loadLog(); loadN8n(); loadNacRules(); }, 1200);
 }
 
 async function loadAll() {
@@ -781,6 +1132,8 @@ function renderSiteRows() {
     </div>`;
   }).join('');
 }
+
+// ── APs ────────────────────────────────────────────────────────────────────────
 
 // ── APs ────────────────────────────────────────────────────────────────────────
 async function loadAPs() {
@@ -903,8 +1256,14 @@ async function loadWlans() {
 async function loadSwitches() {
   document.getElementById('sw-sub').textContent = 'Loading...';
   try {
-    const data = await mist('/orgs/' + ORG_ID + '/devices/search?type=switch&limit=200');
-    const sw = data.results || [];
+    const all = [];
+    await Promise.all(allSites.map(async site => {
+      try {
+        const devs = await mist(`/sites/${site.id}/stats/devices?type=switch`);
+        (Array.isArray(devs) ? devs : []).filter(d => d.type === 'switch').forEach(d => { d._site_name = site.name; d._site_id = site.id; all.push(d); });
+      } catch(_) {}
+    }));
+    const sw = all;
     allSwitches = sw;
     const on = sw.filter(s => s.status === 'connected').length;
     const off = sw.filter(s => s.status === 'disconnected').length;
@@ -923,10 +1282,11 @@ async function loadSwitches() {
     }
     tbody.innerHTML = sw.map(s => {
       const poe = s.poe_stat ? `${(s.poe_stat.current_draw||0).toFixed(1)}W / ${(s.poe_stat.max_power||0).toFixed(1)}W` : '—';
-      return `<tr>
+      const click = s.id && (s._site_id || s.site_id) ? `onclick="openDeviceDetail('${s._site_id || s.site_id}','${s.id}','switch')"` : '';
+      return `<tr class="clickable" ${click}>
         <td><span class="ap-name">${s.hostname || s.name || '—'}</span></td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${s.model || '—'}</td>
-        <td style="font-size:11px;color:var(--muted)">${s.site_name || (s.site_id ? s.site_id.slice(0,8)+'…' : '—')}</td>
+        <td style="font-size:11px;color:var(--muted)">${s._site_name || (s.site_id ? s.site_id.slice(0,8)+'…' : '—')}</td>
         <td style="font-family:var(--mono);font-size:11px">${s.ip || s.ext_ip || '—'}</td>
         <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${s.version || '—'}</td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${fmtUptime(s.uptime)}</td>
@@ -943,8 +1303,14 @@ async function loadSwitches() {
 async function loadWan() {
   document.getElementById('wan-sub').textContent = 'Loading...';
   try {
-    const data = await mist('/orgs/' + ORG_ID + '/devices/search?type=gateway&limit=200');
-    const gw = data.results || [];
+    const all = [];
+    await Promise.all(allSites.map(async site => {
+      try {
+        const devs = await mist(`/sites/${site.id}/stats/devices?type=gateway`);
+        (Array.isArray(devs) ? devs : []).filter(d => d.type === 'gateway').forEach(d => { d._site_name = site.name; d._site_id = site.id; all.push(d); });
+      } catch(_) {}
+    }));
+    const gw = all;
     allWan = gw;
     const on = gw.filter(g => g.status === 'connected').length;
     const off = gw.filter(g => g.status === 'disconnected').length;
@@ -967,10 +1333,11 @@ async function loadWan() {
         ? Object.entries(g.wan_interface_stat).filter(([,v]) => v?.ip)
             .map(([k,v]) => `<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${k}: ${v.ip}</span>`).join('<br>')
         : (g.ip || g.ext_ip || '—');
-      return `<tr>
+      const click = g.id && (g._site_id || g.site_id) ? `onclick="openDeviceDetail('${g._site_id || g.site_id}','${g.id}','gateway')"` : '';
+      return `<tr class="clickable" ${click}>
         <td><span class="ap-name">${g.hostname || g.name || '—'}</span></td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${g.model || '—'}</td>
-        <td style="font-size:11px;color:var(--muted)">${g.site_name || (g.site_id ? g.site_id.slice(0,8)+'…' : '—')}</td>
+        <td style="font-size:11px;color:var(--muted)">${g._site_name || (g.site_id ? g.site_id.slice(0,8)+'…' : '—')}</td>
         <td style="font-family:var(--mono);font-size:11px">${g.ip || g.ext_ip || '—'}</td>
         <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${g.version || '—'}</td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${fmtUptime(g.uptime)}</td>
@@ -1494,11 +1861,292 @@ function setActive(el) {
   el.classList.add('active');
 }
 
+// ── Device detail modal ────────────────────────────────────────────────────────
+async function openDeviceDetail(siteId, deviceId, type) {
+  const overlay = document.getElementById('device-modal-overlay');
+  const bodyEl  = document.getElementById('device-modal-body');
+  document.getElementById('device-modal-name').textContent = 'Loading…';
+  document.getElementById('device-modal-model').textContent = '';
+  document.getElementById('device-modal-status').innerHTML = '';
+  overlay.classList.add('open');
+  bodyEl.innerHTML = '<div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--muted)"><span class="spinner-sm"></span> Fetching stats from Mist API…</div>';
+  try {
+    const d = await mist(`/sites/${siteId}/stats/devices/${deviceId}?type=${type}`);
+    document.getElementById('device-modal-name').textContent = d.name || d.hostname || deviceId;
+    document.getElementById('device-modal-model').textContent = d.model || '';
+    document.getElementById('device-modal-status').innerHTML = statusTag(d.status);
+    bodyEl.innerHTML = renderDeviceDetail(d, type);
+  } catch(e) {
+    bodyEl.innerHTML = `<div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--danger)">// Error loading stats: ${e.message}</div>`;
+  }
+}
+function closeDeviceDetail() { document.getElementById('device-modal-overlay').classList.remove('open'); }
+function fmtBytes(b) { if(!b)return'0'; if(b>1e9)return(b/1e9).toFixed(1)+'G'; if(b>1e6)return(b/1e6).toFixed(1)+'M'; if(b>1e3)return(b/1e3).toFixed(1)+'K'; return b+'B'; }
+function fmtRate(bps) { if(!bps&&bps!==0)return'—'; if(bps>=1e9)return(bps/1e9).toFixed(1)+' Gbps'; if(bps>=1e6)return(bps/1e6).toFixed(1)+' Mbps'; if(bps>=1e3)return(bps/1e3).toFixed(1)+' Kbps'; return bps+' bps'; }
+
+function renderDeviceDetail(d, type) {
+  const infoItems = [
+    { label:'IP', val: d.ip||d.ext_ip||'—' }, { label:'MAC', val: d.mac||'—' },
+    { label:'Version', val: d.version||'—' }, { label:'Uptime', val: fmtUptime(d.uptime) },
+    { label:'Clients', val: d.num_clients??'—' }, { label:'Site', val: d.site_id?d.site_id.slice(0,8)+'…':'—' },
+    { label:'Last Seen', val: d.last_seen?new Date(d.last_seen*1000).toLocaleString():'—' },
+    { label:'TX / RX', val: d.tx_bytes!==undefined?`${fmtBytes(d.tx_bytes)} / ${fmtBytes(d.rx_bytes)}`:'—' },
+  ];
+  let html = `<div class="detail-section"><div class="detail-section-title">System Info</div>
+    <div class="detail-info-grid">${infoItems.map(i=>`<div class="detail-item"><div class="detail-item-label">${i.label}</div><div class="detail-item-val">${i.val}</div></div>`).join('')}</div></div>`;
+  if (type==='ap'&&d.radio_stat) {
+    const bands=[{key:'band_24',label:'2.4 GHz'},{key:'band_5',label:'5 GHz'},{key:'band_6',label:'6 GHz'}].filter(b=>d.radio_stat[b.key]);
+    if(bands.length) html+=`<div class="detail-section"><div class="detail-section-title">Radio Stats</div><div class="radio-grid">`+bands.map(b=>{
+      const r=d.radio_stat[b.key];
+      const rows=[['Channel',r.channel?`${r.channel}/${r.bandwidth||20}MHz`:'—'],['Tx Power',r.power!==undefined?`${r.power}dBm`:'—'],['Noise',r.noise_floor!==undefined?`${r.noise_floor}dBm`:'—'],['Clients',r.num_clients??'—'],['Tx',fmtBytes(r.tx_bytes)],['Rx',fmtBytes(r.rx_bytes)]];
+      return `<div class="radio-card"><div class="radio-band-hdr"><span>${b.label}</span><span class="tag ${!r.num_clients?'warn':'ok'}">${r.num_clients??0}cl</span></div>${rows.map(([k,v])=>`<div class="radio-stat-row"><span class="radio-stat-k">${k}</span><span class="radio-stat-v">${v}</span></div>`).join('')}</div>`;
+    }).join('')+`</div></div>`;
+  }
+  if (type==='switch') {
+    const ports=Object.entries(d.port_stat||{}).slice(0,8);
+    if(ports.length) html+=`<div class="detail-section"><div class="detail-section-title">Port Stats</div><div class="detail-info-grid">${ports.map(([port,p])=>`<div class="detail-item"><div class="detail-item-label">${port}</div><div class="detail-item-val">${p.speed||'—'}·${p.duplex||'—'}</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px">${fmtBytes(p.tx_bytes||0)}/${fmtBytes(p.rx_bytes||0)}</div></div>`).join('')}</div></div>`;
+    if(d.poe_stat) { const poe=d.poe_stat; html+=`<div class="detail-section"><div class="detail-section-title">PoE</div><div class="detail-info-grid"><div class="detail-item"><div class="detail-item-label">Draw</div><div class="detail-item-val">${(poe.current_draw||0).toFixed(1)}W</div></div><div class="detail-item"><div class="detail-item-label">Budget</div><div class="detail-item-val">${(poe.max_power||0).toFixed(1)}W</div></div><div class="detail-item"><div class="detail-item-label">Util</div><div class="detail-item-val">${poe.max_power?Math.round((poe.current_draw/poe.max_power)*100):'—'}%</div></div></div></div>`; }
+  }
+  if (type==='gateway'&&d.wan_interface_stat) {
+    html+=`<div class="detail-section"><div class="detail-section-title">WAN Interfaces</div><div class="detail-info-grid">${Object.entries(d.wan_interface_stat).map(([iface,w])=>`<div class="detail-item"><div class="detail-item-label">${iface}</div><div class="detail-item-val">${w.ip||'—'}</div><div style="font-family:var(--mono);font-size:10px;margin-top:3px"><span class="tag ${w.up?'ok':'danger'}">${w.up?'up':'down'}</span>${w.latency!==undefined?`<span style="color:var(--muted);margin-left:4px">${w.latency}ms</span>`:''}</div></div>`).join('')}</div></div>`;
+  }
+  if (d.env_stat) {
+    const env=d.env_stat;
+    html+=`<div class="detail-section"><div class="detail-section-title">Environment</div><div class="detail-info-grid">
+      <div class="detail-item"><div class="detail-item-label">CPU</div><div class="detail-item-val">${env.cpu_usage!==undefined?Math.round(env.cpu_usage)+'%':'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">Memory</div><div class="detail-item-val">${(env.memory_used_kb&&env.memory_total_kb)?Math.round(env.memory_used_kb/env.memory_total_kb*100)+'%':'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">Temp</div><div class="detail-item-val">${env.ambient_temp!==undefined?env.ambient_temp+'°C':'—'}</div></div>
+    </div></div>`;
+  }
+  return html;
+}
+
+// ── SLE / Marvis Minis ─────────────────────────────────────────────────────────
+const SLE_CATEGORIES = [
+  { key:'wireless', label:'Wireless', icon:'◉', metrics:[
+    {key:'time-to-connect',label:'Time to Connect',icon:'⟳'},{key:'roaming',label:'Roaming',icon:'⇌'},
+    {key:'coverage',label:'Coverage',icon:'◎'},{key:'throughput',label:'Throughput',icon:'↑'},
+    {key:'ap-availability',label:'AP Avail.',icon:'◉'},{key:'capacity',label:'Capacity',icon:'≡'}] },
+  { key:'wired', label:'Wired', icon:'◫', metrics:[
+    {key:'switch-stc',label:'Time to Connect',icon:'⟳'},{key:'switch-throughput',label:'Throughput',icon:'↑'},
+    {key:'poe-compliance',label:'PoE Compliance',icon:'⚡'},{key:'switch-health',label:'Health',icon:'◉'}] },
+  { key:'gateway', label:'WAN', icon:'◭', metrics:[
+    {key:'wan-link-health',label:'WAN Health',icon:'◉'},{key:'gateway-health',label:'GW Health',icon:'◭'},
+    {key:'application-health',label:'App Health',icon:'≡'}] },
+];
+
+async function fetchSleScores(siteId, scopeType, metrics, start, end) {
+  const scores=[];
+  await Promise.all(metrics.map(async m => {
+    try {
+      const d=await mist(`/sites/${siteId}/sle/${scopeType}/${siteId}/metric/${m.key}?start=${start}&end=${end}`);
+      const score=d.score??d.sle_score??d.value??null;
+      if(score!==null) scores.push({...m,score:Math.round(score*100)/100});
+    } catch(_) {}
+  }));
+  return scores;
+}
+function renderSleGrid(scores) {
+  return '<div class="mini-grid">'+scores.map(s=>{
+    const pct=Math.min(100,Math.round(s.score));
+    const cls=pct>=80?'ok':pct>=60?'warn':'danger';
+    const color=pct>=80?'var(--ok)':pct>=60?'var(--warn)':'var(--danger)';
+    return `<div class="mini-card"><div class="mini-label">${s.icon} ${s.label}</div><div class="mini-score ${cls}">${pct}%</div><div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+  }).join('')+'</div>';
+}
+async function loadMarvisMinis() {
+  const body=document.getElementById('marvis-minis-body');
+  const stamp=document.getElementById('marvis-minis-stamp');
+  const end=Math.floor(Date.now()/1000), start=end-7*86400;
+  if(!allSites.length){body.innerHTML='<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">// Waiting for site data...</span>';return;}
+  const siteId=allSites[0].id;
+  const results=await Promise.all(SLE_CATEGORIES.map(cat=>fetchSleScores(siteId,cat.key,cat.metrics,start,end).then(scores=>({...cat,scores}))));
+  const hasAny=results.some(r=>r.scores.length>0);
+  if(hasAny){
+    stamp.textContent='7d · '+allSites[0].name;
+    body.innerHTML='<div class="sle-sections">'+results.map(cat=>{
+      if(!cat.scores.length)return'';
+      return`<div><div class="sle-section-hdr">${cat.icon} ${cat.label}</div>${renderSleGrid(cat.scores)}</div>`;
+    }).join('')+'</div>';
+    return;
+  }
+  deriveMarvisMinis(start,end);
+}
+function deriveMarvisMinis(start,end) {
+  const body=document.getElementById('marvis-minis-body');
+  const stamp=document.getElementById('marvis-minis-stamp');
+  const onAP=allAPs.filter(d=>d.status==='connected').length,totalAP=allAPs.length;
+  const clients=allAPs.reduce((a,d)=>a+(d.num_clients||0),0);
+  const onSW=allSwitches.filter(d=>d.status==='connected').length,totalSW=allSwitches.length;
+  const onGW=allWan.filter(d=>d.status==='connected').length,totalGW=allWan.length;
+  const tiles=[
+    {label:'AP Availability',icon:'◉',val:totalAP?Math.round((onAP/totalAP)*100):null,unit:'%'},
+    {label:'Active Clients',icon:'◎',val:clients,unit:''},
+    {label:'Switch Uptime',icon:'◫',val:totalSW?Math.round((onSW/totalSW)*100):null,unit:'%'},
+    {label:'Gateway Uptime',icon:'◭',val:totalGW?Math.round((onGW/totalGW)*100):null,unit:'%'},
+  ].filter(t=>t.val!==null);
+  stamp.textContent='live · SLE requires subscription';
+  if(!tiles.length){body.innerHTML='<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">// No device data yet</span>';return;}
+  body.innerHTML='<div class="mini-grid">'+tiles.map(t=>{
+    const isP=t.unit==='%';
+    const pct=isP?t.val:Math.min(100,t.val*4);
+    const cls=isP?(t.val>=80?'ok':t.val>=60?'warn':'danger'):'info';
+    const color=cls==='ok'?'var(--ok)':cls==='warn'?'var(--warn)':cls==='danger'?'var(--danger)':'var(--accent2)';
+    return`<div class="mini-card"><div class="mini-label">${t.icon} ${t.label}</div><div class="mini-score ${cls}">${t.val}${t.unit}</div><div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+  }).join('')+'</div><div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted)">// SLE requires Marvis subscription · showing live device status</div>';
+}
+
+// ── Access Assurance / NAC Rules ───────────────────────────────────────────────
+async function loadNacRules() {
+  const tbody=document.getElementById('nac-body');
+  document.getElementById('nac-sub').textContent='Loading…';
+  tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px"><span class="spinner-sm"></span> Fetching NAC rules…</td></tr>';
+  try {
+    const [rules,tags]=await Promise.all([mist('/orgs/'+ORG_ID+'/nacrules'),mist('/orgs/'+ORG_ID+'/nactags').catch(()=>[])]);
+    const tagMap={};(Array.isArray(tags)?tags:[]).forEach(t=>{tagMap[t.id]=t.name||t.id.slice(0,8);});
+    const ruleList=Array.isArray(rules)?rules:[];
+    const enabled=ruleList.filter(r=>r.enabled!==false).length;
+    document.getElementById('badge-nac').textContent=ruleList.length;
+    document.getElementById('nac-kpi-total').textContent=ruleList.length;
+    document.getElementById('nac-kpi-enabled').textContent=enabled;
+    document.getElementById('nac-kpi-disabled').textContent=ruleList.length-enabled;
+    document.getElementById('nac-kpi-allow').textContent=ruleList.filter(r=>r.action==='allow').length;
+    document.getElementById('nac-kpi-row').style.display='grid';
+    document.getElementById('nac-sub').textContent=`${ruleList.length} rules · ${enabled} enabled`;
+    if(!ruleList.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// No NAC rules configured</td></tr>';return;}
+    tbody.innerHTML=ruleList.sort((a,b)=>(a.order||0)-(b.order||0)).map(r=>{
+      const m=r.matching||{};
+      const actionCls=r.action==='allow'?'ok':r.action==='deny'?'danger':'warn';
+      const enabledTag=r.enabled!==false?'<span class="tag ok">enabled</span>':'<span class="tag warn">disabled</span>';
+      return`<tr class="clickable" onclick="showNacRuleDetail(${JSON.stringify(JSON.stringify(r)).slice(1,-1)})">
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${r.order??'—'}</td>
+        <td><span class="ap-name">${r.name||r.id}</span></td>
+        <td><span class="tag ${actionCls}">${r.action||'—'}</span></td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${m.auth_type||'—'}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${(m.port_types||[]).join(',')||'—'}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(m.nactags||[]).map(id=>tagMap[id]||id.slice(0,8)).join(',')||'—'}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--accent2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.apply_tags||[]).map(id=>tagMap[id]||id.slice(0,8)).join(',')||'—'}</td>
+        <td>${enabledTag}</td></tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--danger);font-family:var(--mono);font-size:11px">// Error: ${e.message}</td></tr>`;
+  }
+}
+function showNacRuleDetail(ruleJson) {
+  try {
+    const r=JSON.parse(ruleJson), m=r.matching||{};
+    document.getElementById('device-modal-name').textContent=r.name||r.id;
+    document.getElementById('device-modal-model').textContent=`Rule #${r.order??'—'}`;
+    document.getElementById('device-modal-status').innerHTML=r.enabled!==false?'<span class="tag ok">enabled</span>':'<span class="tag warn">disabled</span>';
+    document.getElementById('device-modal-body').innerHTML=`
+      <div class="detail-section"><div class="detail-section-title">Rule Config</div><div class="detail-info-grid">
+        <div class="detail-item"><div class="detail-item-label">Action</div><div class="detail-item-val" style="color:${r.action==='allow'?'var(--ok)':'var(--danger)'}">${r.action||'—'}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Auth Type</div><div class="detail-item-val">${m.auth_type||'—'}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Port Types</div><div class="detail-item-val">${(m.port_types||[]).join(',')||'—'}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Order</div><div class="detail-item-val">${r.order??'—'}</div></div>
+      </div></div>
+      <div class="detail-section"><div class="detail-section-title">Matching Criteria</div>
+        <pre style="background:var(--bg3);border:1px solid var(--border);padding:12px;font-family:var(--mono);font-size:11px;line-height:1.6;overflow:auto;color:var(--text)">${JSON.stringify(m,null,2)}</pre>
+      </div>
+      <div class="detail-section"><div class="detail-section-title">Applied Tags</div>
+        <div style="padding:8px 0;font-family:var(--mono);font-size:11px;color:var(--accent2)">${(r.apply_tags||[]).join('<br>')||'// No tags applied'}</div>
+      </div>`;
+    document.getElementById('device-modal-overlay').classList.add('open');
+  } catch(e) {}
+}
+
+// ── Org Insights SSE Stream ────────────────────────────────────────────────────
+let _insightsSource=null, _insightsConnected=false;
+function toggleInsightsStream(){ _insightsConnected?disconnectInsightsStream():connectInsightsStream(); }
+function connectInsightsStream() {
+  if(_insightsSource)_insightsSource.close();
+  const statusEl=document.getElementById('insights-ws-status'), btnEl=document.getElementById('insights-btn');
+  statusEl.textContent='⟳ Connecting…'; statusEl.style.color='var(--warn)';
+  btnEl.textContent='Disconnect';
+  document.getElementById('badge-insights').style.display='';
+  _insightsSource=new EventSource(`/api/v1/orgs/${ORG_ID}/insights/stream`);
+  _insightsSource.onopen=()=>{
+    _insightsConnected=true; statusEl.textContent='● Connected'; statusEl.style.color='var(--ok)';
+    document.getElementById('insights-kpi-row').style.display='grid';
+    document.getElementById('insights-detail-row').style.display='grid';
+  };
+  _insightsSource.onmessage=(e)=>{
+    try {
+      const msg=JSON.parse(e.data);
+      if(msg.ping)return;
+      if(msg.error){appendInsightsLog({type:'error',message:msg.error});return;}
+      renderInsightsSummary(msg.event||msg); appendInsightsLog(msg.event||msg);
+    } catch(_){appendInsightsLog({raw:e.data});}
+  };
+  _insightsSource.onerror=()=>{
+    _insightsConnected=false; statusEl.textContent='● Error'; statusEl.style.color='var(--danger)'; btnEl.textContent='Reconnect';
+  };
+}
+function disconnectInsightsStream(){
+  if(_insightsSource){_insightsSource.close();_insightsSource=null;}
+  _insightsConnected=false;
+  document.getElementById('insights-ws-status').textContent='● Disconnected';
+  document.getElementById('insights-ws-status').style.color='var(--muted)';
+  document.getElementById('insights-btn').textContent='Connect';
+  document.getElementById('badge-insights').style.display='none';
+}
+function renderInsightsSummary(evt) {
+  document.getElementById('ins-last-update').textContent='LIVE · '+new Date().toLocaleTimeString();
+  if(evt.num_sites!==undefined)document.getElementById('ins-sites').textContent=evt.num_sites;
+  if(evt.num_aps!==undefined)document.getElementById('ins-aps').textContent=evt.num_aps;
+  if(evt.num_aps_connected!==undefined)document.getElementById('ins-aps-on').textContent=evt.num_aps_connected;
+  if(evt.num_aps_disconnected!==undefined)document.getElementById('ins-aps-off').textContent=evt.num_aps_disconnected;
+  const summaryFields=['num_sites','num_aps','num_aps_connected','num_aps_disconnected','num_switches','num_gateways','num_clients'];
+  const rows=summaryFields.filter(k=>evt[k]!==undefined).map(k=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px"><span style="color:var(--muted)">${k.replace(/_/g,' ')}</span><span>${evt[k]}</span></div>`).join('');
+  if(rows)document.getElementById('ins-summary-body').innerHTML=rows;
+  const cRows=['num_clients','num_clients_wireless','num_clients_wired'].filter(k=>evt[k]!==undefined).map(k=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px"><span style="color:var(--muted)">${k.replace(/_/g,' ')}</span><span style="color:var(--accent2)">${evt[k]}</span></div>`).join('');
+  if(cRows)document.getElementById('ins-clients-body').innerHTML=cRows;
+}
+function appendInsightsLog(evt) {
+  const log=document.getElementById('insights-log');
+  const isErr=evt.type==='error'||evt.error;
+  const preview=evt.raw?evt.raw.slice(0,120):JSON.stringify(evt).slice(0,160);
+  const item=document.createElement('div');
+  item.style.cssText=`padding:5px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:${isErr?'var(--danger)':'var(--muted)'}`;
+  item.innerHTML=`<span style="color:var(--accent2)">[${new Date().toLocaleTimeString()}]</span> ${preview}`;
+  if(log.firstChild&&log.firstChild.textContent&&log.firstChild.textContent.includes('No events'))log.innerHTML='';
+  log.insertBefore(item,log.firstChild);
+  while(log.children.length>200)log.removeChild(log.lastChild);
+}
+function clearInsightsLog(){document.getElementById('insights-log').innerHTML='<div style="color:var(--muted);padding:8px 0;font-family:var(--mono);font-size:11px">// Cleared</div>';}
+
 // ── Keyboard shortcuts ─────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openTshoot(); }
-  if (e.key === 'Escape') closeTshoot();
+  if (e.key === 'Escape') { closeTshoot(); closeDeviceDetail(); }
 });
+
+// ── Starfield canvas ───────────────────────────────────────────────────────────
+(function initStarfield() {
+  const c=document.createElement('canvas');
+  c.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:1';
+  document.body.insertBefore(c,document.body.firstChild);
+  const dpr=window.devicePixelRatio||1;
+  c.width=window.innerWidth*dpr; c.height=window.innerHeight*dpr;
+  const ctx=c.getContext('2d'); ctx.scale(dpr,dpr);
+  const W=window.innerWidth, H=window.innerHeight;
+  for(let i=0;i<140;i++){
+    const x=Math.random()*W, y=Math.random()*H*0.8;
+    const r=Math.random()*0.7+0.15, a=Math.random()*0.3+0.04;
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(215,200,170,${a})`;ctx.fill();
+  }
+  for(let i=0;i<50;i++){
+    const x=Math.random()*W, y=Math.random()*H*0.65;
+    const r=Math.random()*0.5+0.15, a=Math.random()*0.2+0.04;
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,210,120,${a})`;ctx.fill();
+  }
+  const hg=ctx.createLinearGradient(0,H*0.75,0,H);
+  hg.addColorStop(0,'rgba(180,100,30,0)');
+  hg.addColorStop(1,'rgba(180,80,20,0.03)');
+  ctx.fillStyle=hg;ctx.fillRect(0,H*0.75,W,H*0.25);
+})();
 
 // ── Auto-login if session exists ───────────────────────────────────────────────
 if (SESSION.token) startApp();

@@ -6,13 +6,14 @@ import threading
 from collections import deque
 from datetime import datetime
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 import requests
 import anthropic
+import websocket
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 load_dotenv()
@@ -267,6 +268,11 @@ def index():
     return send_from_directory('static', 'index.html')
 
 
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory('static', filename)
+
+
 @app.route('/health')
 def health():
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
@@ -373,7 +379,7 @@ def reboot_device(site_id, device_id):
 
 @app.route('/api/v1/sites/<site_id>/stats/devices', methods=['GET'])
 def device_stats(site_id):
-    return mist_json(mist_request('GET', f'/sites/{site_id}/stats/devices'))
+    return mist_json(mist_request('GET', f'/sites/{site_id}/stats/devices', params=request.args))
 
 
 @app.route('/api/v1/sites/<site_id>/stats/clients', methods=['GET'])
@@ -541,14 +547,79 @@ def org_marvis_action(org_id):
     return mist_json(mist_request('GET', f'/orgs/{org_id}/marvis/action', params=request.args))
 
 
-@app.route('/api/v1/sites/<site_id>/sle/wireless/metric/<metric>/summary', methods=['GET'])
-def site_sle_metric(site_id, metric):
-    return mist_json(mist_request('GET', f'/sites/{site_id}/sle/wireless/metric/{metric}/summary', params=request.args))
+@app.route('/api/v1/sites/<site_id>/sle/<path:sle_path>', methods=['GET'])
+def site_sle(site_id, sle_path):
+    return mist_json(mist_request('GET', f'/sites/{site_id}/sle/{sle_path}', params=request.args))
+
+
+@app.route('/api/v1/sites/<site_id>/stats/devices/<device_id>', methods=['GET'])
+def device_stats_by_id(site_id, device_id):
+    return mist_json(mist_request('GET', f'/sites/{site_id}/stats/devices/{device_id}', params=request.args))
 
 
 @app.route('/api/v1/orgs/<org_id>/logs', methods=['GET'])
 def org_logs(org_id):
     return mist_json(mist_request('GET', f'/orgs/{org_id}/logs', params=request.args))
+
+
+@app.route('/api/v1/orgs/<org_id>/nacrules', methods=['GET'])
+def org_nacrules(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/nacrules', params=request.args))
+
+
+@app.route('/api/v1/orgs/<org_id>/nacrules/<rule_id>', methods=['GET', 'PUT', 'DELETE'])
+def org_nacrule(org_id, rule_id):
+    return mist_json(mist_request(request.method, f'/orgs/{org_id}/nacrules/{rule_id}',
+                                   json=request.get_json() if request.method == 'PUT' else None))
+
+
+@app.route('/api/v1/orgs/<org_id>/nactags', methods=['GET'])
+def org_nactags(org_id):
+    return mist_json(mist_request('GET', f'/orgs/{org_id}/nactags', params=request.args))
+
+
+@app.route('/api/v1/orgs/<org_id>/insights/stream')
+def insights_stream(org_id):
+    """SSE proxy for Mist Org Insight WebSocket stream."""
+    token = get_token()
+    mist_ws_url = 'wss://api.mist.com/api-ws/v1/stream'
+    subscribe_msg = json.dumps({'subscribe': f'/orgs/{org_id}/insights/summary'})
+
+    def generate():
+        ws = None
+        try:
+            ws = websocket.WebSocket()
+            ws.connect(f'{mist_ws_url}?token={token}')
+            ws.send(subscribe_msg)
+            while True:
+                try:
+                    ws.settimeout(30)
+                    data = ws.recv()
+                    if data:
+                        yield f'data: {data}\n\n'
+                except websocket.WebSocketTimeoutException:
+                    yield 'data: {"ping":true}\n\n'
+                except Exception as e:
+                    yield f'data: {{"error":"{str(e)}"}}\n\n'
+                    break
+        except Exception as e:
+            yield f'data: {{"error":"connection failed: {str(e)}"}}\n\n'
+        finally:
+            if ws:
+                try:
+                    ws.close()
+                except Exception:
+                    pass
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive',
+        }
+    )
 
 
 # ============================================================================
@@ -626,7 +697,7 @@ def n8n_chat():
         body = request.get_json() or {}
         body.setdefault('org_id', MIST_ORG_ID)
         r = requests.post(
-            f'{N8N_URL}/webhook/mist-chat',
+            f'{N8N_URL}/webhook/chat',
             json=body,
             timeout=40,
             headers={'Content-Type': 'application/json'},
@@ -641,15 +712,14 @@ def n8n_chat():
 @app.route('/api/n8n/action', methods=['POST'])
 @limiter.limit('20 per minute')
 def n8n_action():
-    """Proxy a Mist API action through n8n's mist-api workflow."""
+    """Proxy a Mist API action through n8n's mist-api workflow (GET webhook)."""
     try:
         body = request.get_json() or {}
         body.setdefault('org_id', MIST_ORG_ID)
-        r = requests.post(
-            f'{N8N_URL}/webhook/mist-api',
-            json=body,
+        r = requests.get(
+            f'{N8N_URL}/webhook/mist-api-proxy',
+            params=body,
             timeout=40,
-            headers={'Content-Type': 'application/json'},
         )
         return mist_json(r)
     except requests.Timeout:

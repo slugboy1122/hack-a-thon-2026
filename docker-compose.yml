@@ -41,6 +41,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - MIST_API_TOKEN=${MIST_API_TOKEN}
       - MIST_DEFAULT_ORG_ID=${MIST_ORG_ID}
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
     volumes:
       - n8n-data:/home/node/.n8n
     networks:
