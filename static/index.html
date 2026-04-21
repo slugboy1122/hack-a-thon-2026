@@ -207,6 +207,15 @@ header::after{
 .nav-badge.warn{background:rgba(232,151,58,0.2);color:var(--warn)}
 .nav-badge.ok{background:rgba(68,196,154,0.15);color:var(--ok)}
 .nav-badge.info{background:rgba(90,184,216,0.15);color:var(--accent2)}
+.nav-sub-item{
+  display:flex;align-items:center;gap:8px;padding:5px 8px 5px 28px;
+  cursor:pointer;font-size:11px;font-weight:400;color:var(--muted2);
+  transition:all var(--transition);margin-bottom:1px;
+  border-left:2px solid transparent;letter-spacing:0.03em;
+}
+.nav-sub-item:hover{color:var(--text);background:rgba(200,150,55,0.06);border-left-color:rgba(200,150,55,0.3)}
+.nav-sub-item.active{color:var(--accent);background:rgba(232,160,64,0.07);border-left-color:var(--accent)}
+.nav-sub-icon{font-size:8px;width:14px;text-align:center;flex-shrink:0;color:var(--border2)}
 .sidebar-spacer{flex:1}
 .sidebar-dunes{width:100%;height:70px;pointer-events:none;opacity:0.28;flex-shrink:0}
 
@@ -461,6 +470,9 @@ html[data-theme="light"] .sidebar-label{color:var(--accent);border-bottom-color:
 html[data-theme="light"] .nav-item{color:var(--muted2)}
 html[data-theme="light"] .nav-item:hover{color:var(--text);background:rgba(0,119,181,0.06);border-left-color:rgba(0,119,181,0.3)}
 html[data-theme="light"] .nav-item.active{color:var(--accent);background:rgba(0,119,181,0.09);border-left-color:var(--accent)}
+html[data-theme="light"] .nav-sub-item{color:var(--muted2)}
+html[data-theme="light"] .nav-sub-item:hover{color:var(--text);background:rgba(0,119,181,0.06);border-left-color:rgba(0,119,181,0.3)}
+html[data-theme="light"] .nav-sub-item.active{color:var(--accent);background:rgba(0,119,181,0.09);border-left-color:var(--accent)}
 html[data-theme="light"] .sidebar-dunes{display:none}
 html[data-theme="light"] .nav-badge{background:rgba(0,119,181,0.12);color:var(--accent)}
 html[data-theme="light"] .nav-badge.warn{background:rgba(201,122,6,0.12);color:var(--warn)}
@@ -711,6 +723,10 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           <span class="nav-icon">◉</span><span class="nav-label">Access Points</span>
           <span class="nav-badge info" id="badge-aps">—</span>
         </div>
+        <div class="nav-sub-item" onclick="showClients('wireless');setActive(this)" id="subnav-clients-aps">
+          <span class="nav-sub-icon">└</span><span class="nav-label">Connected Clients</span>
+          <span class="nav-badge info" id="badge-clients-wireless" style="display:none">—</span>
+        </div>
         <div class="nav-item" onclick="showTab('wlans');setActive(this)">
           <span class="nav-icon">◈</span><span class="nav-label">WLANs</span>
           <span class="nav-badge ok" id="badge-wlans">—</span>
@@ -719,6 +735,10 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           <span class="nav-icon">◫</span><span class="nav-label">Switches</span>
           <span class="nav-badge ok" id="badge-switches">—</span>
         </div>
+        <div class="nav-sub-item" onclick="showClients('wired');setActive(this)" id="subnav-clients-switches">
+          <span class="nav-sub-icon">└</span><span class="nav-label">Connected Clients</span>
+          <span class="nav-badge ok" id="badge-clients-wired" style="display:none">—</span>
+        </div>
         <div class="nav-item" onclick="showTab('wan');setActive(this)">
           <span class="nav-icon">◭</span><span class="nav-label">WAN / Gateways</span>
           <span class="nav-badge ok" id="badge-wan">—</span>
@@ -726,6 +746,10 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         <div class="nav-item" onclick="showTab('nac');setActive(this)">
           <span class="nav-icon">⬡</span><span class="nav-label">Access Assurance</span>
           <span class="nav-badge info" id="badge-nac">—</span>
+        </div>
+        <div class="nav-sub-item" onclick="showClients('nac');setActive(this)" id="subnav-clients-nac">
+          <span class="nav-sub-icon">└</span><span class="nav-label">Connected Clients</span>
+          <span class="nav-badge info" id="badge-clients-nac" style="display:none">—</span>
         </div>
         <div class="nav-item" onclick="showTab('insights');setActive(this)">
           <span class="nav-icon">◎</span><span class="nav-label">Org Insights</span>
@@ -1096,6 +1120,50 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
       </div>
 
       <!-- ACCESS ASSURANCE -->
+      <!-- CONNECTED CLIENTS -->
+      <div id="tab-clients" class="tab-content">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Connected Clients</div>
+            <div class="section-sub" id="clients-sub">Live client sessions across all sites</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="clients-search" oninput="filterClients()" placeholder="Search hostname, MAC, IP, user..." style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;outline:none;width:220px;transition:border-color var(--transition)" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+            <select id="clients-type-filter" onchange="filterClients()" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:12px;font-family:var(--sans);padding:7px 10px;outline:none;cursor:pointer">
+              <option value="">All Types</option>
+              <option value="wireless">Wireless</option>
+              <option value="wired">Wired</option>
+            </select>
+            <button class="btn" onclick="loadClients(true)" style="font-size:11px;padding:4px 10px">↺ Refresh</button>
+          </div>
+        </div>
+        <div class="kpi-row" id="clients-kpi-row" style="display:none">
+          <div class="kpi-card info"><div class="kpi-label">Total</div><div class="kpi-value info" id="clients-kpi-total">—</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">Wireless</div><div class="kpi-value ok" id="clients-kpi-wireless">—</div></div>
+          <div class="kpi-card info"><div class="kpi-label">Wired</div><div class="kpi-value info" id="clients-kpi-wired">—</div></div>
+          <div class="kpi-card warn"><div class="kpi-label">Guest</div><div class="kpi-value warn" id="clients-kpi-guest">—</div></div>
+        </div>
+        <div class="card"><div class="card-body" style="padding:0">
+          <table class="ap-table">
+            <thead><tr>
+              <th>Hostname / MAC</th>
+              <th>IP Address</th>
+              <th>Type</th>
+              <th>SSID / Network</th>
+              <th>AP / Port</th>
+              <th>Band</th>
+              <th>RSSI</th>
+              <th>OS</th>
+              <th>VLAN</th>
+              <th>Duration</th>
+            </tr></thead>
+            <tbody id="clients-body">
+              <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Select a view from the sidebar to load clients</td></tr>
+            </tbody>
+          </table>
+        </div></div>
+      </div>
+
       <div id="tab-nac" class="tab-content">
         <div class="section-header">
           <div><div class="section-title">Access Assurance</div><div class="section-sub" id="nac-sub">NAC rules · 802.1X · Certificate-based access</div></div>
@@ -1205,6 +1273,7 @@ let allSites    = [];
 let allAPs      = [];
 let allSwitches = [];
 let allWan      = [];
+let allClients  = [];
 let chatHistory = [];
 let tshootType = 'wireless';
 
@@ -2147,7 +2216,7 @@ function showTab(id) {
   document.getElementById('tab-' + id).classList.add('active');
 }
 function setActive(el) {
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nav-item,.nav-sub-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
 }
 
@@ -2343,6 +2412,136 @@ function showNacRuleDetail(ruleJson) {
       </div>`;
     document.getElementById('device-modal-overlay').classList.add('open');
   } catch(e) {}
+}
+
+// ── Connected Clients ──────────────────────────────────────────────────────────
+let _clientsLoaded = false;
+
+function showClients(typeFilter) {
+  showTab('clients');
+  if (typeFilter) {
+    const sel = document.getElementById('clients-type-filter');
+    if (sel) {
+      if (typeFilter === 'nac') sel.value = '';
+      else sel.value = typeFilter;
+    }
+  }
+  if (!_clientsLoaded) loadClients();
+  else filterClients();
+}
+
+async function loadClients(force) {
+  if (!SESSION.token) return;
+  if (_clientsLoaded && !force) { filterClients(); return; }
+  allClients = [];
+  _clientsLoaded = false;
+  const tbody = document.getElementById('clients-body');
+  document.getElementById('clients-sub').textContent = 'Loading…';
+  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted);font-family:var(--mono);font-size:11px"><span class="spinner-sm"></span> Fetching client sessions from Mist API…</td></tr>';
+  try {
+    const sites = allSites.length ? allSites : [];
+    if (!sites.length) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted2);font-family:var(--mono);font-size:11px">// No sites found — connect an org first</td></tr>';
+      return;
+    }
+    await Promise.all(sites.map(async site => {
+      try {
+        const data = await mist('/sites/' + site.id + '/stats/clients');
+        const list = Array.isArray(data) ? data : (data.results || []);
+        list.forEach(c => { c._site_name = site.name; c._site_id = site.id; });
+        allClients.push(...list);
+      } catch(e) {}
+    }));
+    _clientsLoaded = true;
+    const wireless = allClients.filter(c => (c.type||'wireless') === 'wireless').length;
+    const wired    = allClients.filter(c => c.type === 'wired').length;
+    const guest    = allClients.filter(c => c.is_guest).length;
+    document.getElementById('clients-kpi-total').textContent   = allClients.length;
+    document.getElementById('clients-kpi-wireless').textContent = wireless;
+    document.getElementById('clients-kpi-wired').textContent   = wired;
+    document.getElementById('clients-kpi-guest').textContent   = guest;
+    document.getElementById('clients-kpi-row').style.display   = 'grid';
+    document.getElementById('clients-sub').textContent =
+      `${allClients.length} clients · ${wireless} wireless · ${wired} wired · ${guest} guest`;
+    const wBadge = document.getElementById('badge-clients-wireless');
+    const swBadge = document.getElementById('badge-clients-wired');
+    const nacBadge = document.getElementById('badge-clients-nac');
+    if (wBadge)  { wBadge.textContent  = wireless; wBadge.style.display  = wireless  ? '' : 'none'; }
+    if (swBadge) { swBadge.textContent = wired;    swBadge.style.display = wired     ? '' : 'none'; }
+    if (nacBadge){ nacBadge.textContent = allClients.length; nacBadge.style.display = allClients.length ? '' : 'none'; }
+    filterClients();
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--danger);font-family:var(--mono);font-size:11px">// Error: ${e.message}</td></tr>`;
+  }
+}
+
+function filterClients() {
+  const q    = (document.getElementById('clients-search')?.value || '').toLowerCase();
+  const type = document.getElementById('clients-type-filter')?.value || '';
+  let list = allClients;
+  if (type) list = list.filter(c => (c.type || 'wireless') === type);
+  if (q) list = list.filter(c =>
+    (c.hostname||'').toLowerCase().includes(q) ||
+    (c.mac||'').toLowerCase().includes(q) ||
+    (c.ip||'').toLowerCase().includes(q) ||
+    (c.username||'').toLowerCase().includes(q) ||
+    (c.ssid||'').toLowerCase().includes(q) ||
+    (c.os||'').toLowerCase().includes(q) ||
+    (c._site_name||'').toLowerCase().includes(q)
+  );
+  renderClientsTable(list);
+}
+
+function renderClientsTable(clients) {
+  const tbody = document.getElementById('clients-body');
+  if (!clients.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted2);font-family:var(--mono);font-size:11px">// No clients match</td></tr>';
+    return;
+  }
+  const now = Date.now() / 1000;
+  tbody.innerHTML = clients.map(c => {
+    const hostname = c.hostname || c.mac || '—';
+    const mac      = c.mac ? `<span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">${c.mac}</span>` : '';
+    const ip       = c.ip || '—';
+    const isWired  = c.type === 'wired';
+    const typeBadge = isWired
+      ? '<span class="tag info">wired</span>'
+      : '<span class="tag ok">wireless</span>';
+    const network  = c.ssid || c.network || '—';
+    const apPort   = c.ap_mac
+      ? `<span style="font-family:var(--mono);font-size:10px">${c.ap_mac}</span>`
+      : (c.port_id ? `<span style="font-family:var(--mono);font-size:10px">${c.port_id}</span>` : '—');
+    const band     = c.band ? `${c.band} GHz` : '—';
+    const rssi     = c.rssi != null
+      ? `<span style="color:${c.rssi>=-65?'var(--ok)':c.rssi>=-75?'var(--warn)':'var(--danger)'}">${c.rssi} dBm</span>`
+      : '—';
+    const os       = c.os || c.family || c.manufacture || '—';
+    const vlan     = c.vlan_id != null ? c.vlan_id : '—';
+    const dur      = c.since ? fmtDuration(now - c.since) : '—';
+    const guestMark = c.is_guest ? ' <span class="tag warn" style="font-size:9px">guest</span>' : '';
+    return `<tr>
+      <td><span class="ap-name">${hostname}</span>${guestMark}<br>${mac}</td>
+      <td style="font-family:var(--mono);font-size:11px">${ip}</td>
+      <td>${typeBadge}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--accent2)">${network}</td>
+      <td>${apPort}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${band}</td>
+      <td style="font-family:var(--mono);font-size:11px">${rssi}</td>
+      <td style="font-size:11px;color:var(--muted)">${os}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${vlan}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${dur}</td>
+    </tr>`;
+  }).join('');
+}
+
+function fmtDuration(secs) {
+  if (!secs || secs < 0) return '—';
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 // ── Dashboard WebSocket (real-time event/analysis push from :8765) ─────────────
