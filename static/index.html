@@ -620,7 +620,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
       <div class="lp-card-icon">⬡</div>
       <div class="lp-card-level">Automation</div>
       <div class="lp-card-title">n8n AI Ops Workflow</div>
-      <div class="lp-card-body">Mist webhooks trigger Claude analysis. Results callback to the live dashboard. Self-hosted, Cloudflare tunneled, zero cloud dependency.</div>
+      <div class="lp-card-body">Mist webhooks trigger Claude analysis via n8n cloud. Results callback to the live dashboard in real time.</div>
     </div>
     <div class="lp-card c-dim">
       <div class="lp-card-icon">≡</div>
@@ -1070,7 +1070,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           <div class="card">
             <div class="card-header">
               <span class="card-title">Mist Webhook Config</span>
-              <a href="https://workflows.thewifijedi.com/workflow/PzqwuKIjihrw88O9" target="_blank" rel="noopener" class="portal-link">Open Workflow ↗</a>
+              <a href="https://thewifijedi.app.n8n.cloud/workflow/hYqXcIroggeg61BL" target="_blank" rel="noopener" class="portal-link">Open Workflow ↗</a>
             </div>
             <div class="card-body" style="padding:12px 16px">
               <div style="margin-bottom:10px">
@@ -2054,7 +2054,7 @@ function renderTshootResult(d, mac, query) {
 }
 
 // ── n8n AI Ops ─────────────────────────────────────────────────────────────────
-const N8N_BASE        = 'https://workflows.thewifijedi.com';
+const N8N_BASE        = 'https://thewifijedi.app.n8n.cloud';
 const N8N_PROD_HOOK   = N8N_BASE + '/webhook/mist-events';
 const N8N_TEST_HOOK   = N8N_BASE + '/webhook-test/mist-events';
 const WEBHOOK_HOST    = window.location.origin;
