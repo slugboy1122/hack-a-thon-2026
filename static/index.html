@@ -422,6 +422,123 @@ header::after{
 /* ── Spinner ── */
 .spinner-sm{display:inline-block;width:12px;height:12px;border:1.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══ THEME TOGGLE ═══════════════════════════════════════════════════════════════ */
+.theme-toggle{
+  width:32px;height:32px;border:1px solid var(--border2);background:transparent;
+  color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:15px;transition:all var(--transition);flex-shrink:0;border-radius:0;
+}
+.theme-toggle:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ══ LIGHT THEME ════════════════════════════════════════════════════════════════ */
+html[data-theme="light"]{
+  --bg:#F0F8FD; --bg2:#FFFFFF; --bg3:#E8F4F9; --panel:#FFFFFF;
+  --border:rgba(0,119,181,0.15); --border2:rgba(0,119,181,0.32);
+  --text:#004471; --muted:#9BDAF3; --muted2:#005E93;
+  --accent:#0077B5; --accent2:#00A0DC;
+  --ok:#1a8a5a; --warn:#c97a06; --danger:#c94f35;
+  --glow-amber:rgba(0,119,181,0.07); --glow-teal:rgba(0,160,220,0.09);
+}
+html[data-theme="light"] body{background:var(--bg)}
+html[data-theme="light"] body::before{opacity:0}
+html[data-theme="light"] ::selection{background:rgba(0,119,181,0.2);color:var(--accent)}
+html[data-theme="light"] ::-webkit-scrollbar-thumb{background:rgba(0,119,181,0.2)}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover{background:rgba(0,119,181,0.4)}
+html[data-theme="light"] header{
+  background:linear-gradient(180deg,#FFFFFF 0%,#F8FBFE 100%);
+  border-bottom-color:rgba(0,119,181,0.18);
+}
+html[data-theme="light"] header::after{
+  background:linear-gradient(90deg,transparent 0%,rgba(0,160,220,0.22) 25%,rgba(0,119,181,0.18) 50%,rgba(0,160,220,0.22) 75%,transparent 100%);
+}
+html[data-theme="light"] .logo-subtitle{color:var(--muted2)}
+html[data-theme="light"] .sidebar{
+  background:linear-gradient(180deg,#FFFFFF 0%,#F0F8FD 100%);
+  border-right-color:rgba(0,119,181,0.15);
+}
+html[data-theme="light"] .sidebar-label{color:var(--accent);border-bottom-color:rgba(0,119,181,0.15)}
+html[data-theme="light"] .nav-item{color:var(--muted2)}
+html[data-theme="light"] .nav-item:hover{color:var(--text);background:rgba(0,119,181,0.06);border-left-color:rgba(0,119,181,0.3)}
+html[data-theme="light"] .nav-item.active{color:var(--accent);background:rgba(0,119,181,0.09);border-left-color:var(--accent)}
+html[data-theme="light"] .sidebar-dunes{display:none}
+html[data-theme="light"] .nav-badge{background:rgba(0,119,181,0.12);color:var(--accent)}
+html[data-theme="light"] .nav-badge.warn{background:rgba(201,122,6,0.12);color:var(--warn)}
+html[data-theme="light"] .nav-badge.ok{background:rgba(26,138,90,0.12);color:var(--ok)}
+html[data-theme="light"] .nav-badge.info{background:rgba(0,160,220,0.12);color:var(--accent2)}
+html[data-theme="light"] .nav-badge.danger{background:rgba(201,79,53,0.12);color:var(--danger)}
+html[data-theme="light"] .main{background:var(--bg)}
+html[data-theme="light"] .card{background:var(--bg2)}
+html[data-theme="light"] .card:hover{border-color:rgba(0,119,181,0.3)}
+html[data-theme="light"] .kpi-card{background:var(--bg2)}
+html[data-theme="light"] .kpi-card:hover{border-color:rgba(0,119,181,0.3)}
+html[data-theme="light"] .mini-card{background:var(--bg3)}
+html[data-theme="light"] .tag.ok{background:rgba(26,138,90,0.1);border-color:rgba(26,138,90,0.2)}
+html[data-theme="light"] .tag.warn{background:rgba(201,122,6,0.1);border-color:rgba(201,122,6,0.2)}
+html[data-theme="light"] .tag.danger{background:rgba(201,79,53,0.1);border-color:rgba(201,79,53,0.2)}
+html[data-theme="light"] .tag.info{background:rgba(0,160,220,0.1);border-color:rgba(0,160,220,0.2)}
+html[data-theme="light"] .event-level.INFO{background:rgba(0,160,220,0.1);color:var(--accent2)}
+html[data-theme="light"] .event-level.OK{background:rgba(26,138,90,0.1);color:var(--ok)}
+html[data-theme="light"] .event-level.WARN{background:rgba(201,122,6,0.1);color:var(--warn)}
+html[data-theme="light"] .event-level.ERR{background:rgba(201,79,53,0.1);color:var(--danger)}
+html[data-theme="light"] .ap-table th{background:rgba(0,119,181,0.04)}
+html[data-theme="light"] .ap-table tr:hover td{background:rgba(0,119,181,0.04)!important}
+html[data-theme="light"] .ap-table tr.clickable:hover td{background:rgba(0,119,181,0.06)!important}
+html[data-theme="light"] .btn{color:var(--muted2);border-color:var(--border2)}
+html[data-theme="light"] .btn:hover{border-color:var(--accent);color:var(--accent);background:var(--glow-amber)}
+html[data-theme="light"] .btn-primary{background:var(--bg3);color:var(--accent);border-color:var(--accent);box-shadow:0 0 12px rgba(0,119,181,0.1)}
+html[data-theme="light"] .btn-primary:hover{background:rgba(0,119,181,0.1);box-shadow:0 0 20px rgba(0,119,181,0.2)}
+html[data-theme="light"] .btn-danger{border-color:rgba(201,79,53,0.4);color:var(--danger)}
+html[data-theme="light"] .btn-tshoot{border-color:rgba(0,160,220,0.35);background:rgba(0,160,220,0.04);color:var(--accent2)}
+html[data-theme="light"] .btn-tshoot:hover{background:rgba(0,160,220,0.1);border-color:var(--accent2)}
+html[data-theme="light"] #org-site-select{background:var(--bg3);color:var(--text);border-color:var(--border)}
+html[data-theme="light"] .status-label{color:var(--ok)}
+html[data-theme="light"] .marvis-input{background:var(--bg3);border-color:var(--border2);color:var(--text)}
+html[data-theme="light"] .marvis-input:focus{border-color:var(--accent2)}
+html[data-theme="light"] .tshoot-drawer{background:var(--bg2)}
+html[data-theme="light"] .tshoot-result{background:var(--bg3)}
+html[data-theme="light"] .device-modal{background:var(--bg2)}
+html[data-theme="light"] .device-modal-header{background:var(--bg2)}
+html[data-theme="light"] .detail-item{background:var(--bg3)}
+html[data-theme="light"] .radio-card{background:var(--bg3)}
+html[data-theme="light"] .chat-ai{background:var(--bg3)}
+html[data-theme="light"] .chat-user{background:rgba(0,160,220,0.08);border-color:rgba(0,160,220,0.2)}
+/* Landing page light */
+html[data-theme="light"] #login-screen{
+  background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(0,160,220,0.1) 0%,transparent 60%),var(--bg);
+}
+html[data-theme="light"] .lp-nav{background:rgba(255,255,255,0.97);border-bottom-color:rgba(0,119,181,0.18)}
+html[data-theme="light"] .lp-connect-btn{border-color:var(--accent);color:var(--accent);box-shadow:0 0 12px rgba(0,119,181,0.06)}
+html[data-theme="light"] .lp-connect-btn:hover{background:rgba(0,119,181,0.08)}
+html[data-theme="light"] .lp-headline{color:var(--text);text-shadow:0 0 60px rgba(0,119,181,0.15)}
+html[data-theme="light"] .lp-headline span{color:var(--accent)}
+html[data-theme="light"] .lp-subheadline{color:var(--muted2)}
+html[data-theme="light"] .lp-desc{color:#005E93}
+html[data-theme="light"] .lp-btn-primary{background:rgba(0,119,181,0.07);border-color:var(--accent);color:var(--accent);box-shadow:0 0 20px rgba(0,119,181,0.08)}
+html[data-theme="light"] .lp-btn-primary:hover{background:rgba(0,119,181,0.13);box-shadow:0 0 36px rgba(0,119,181,0.18)}
+html[data-theme="light"] .lp-btn-secondary{border-color:var(--border2);color:var(--muted2)}
+html[data-theme="light"] .lp-btn-secondary:hover{border-color:var(--accent2);color:var(--accent2)}
+html[data-theme="light"] .lp-cards{background:rgba(0,119,181,0.1)}
+html[data-theme="light"] .lp-card{background:#FFFFFF}
+html[data-theme="light"] .lp-card:hover{background:var(--bg3)}
+html[data-theme="light"] .lp-card.c-amber{border-left-color:var(--warn)}
+html[data-theme="light"] .lp-card.c-teal{border-left-color:var(--accent2)}
+html[data-theme="light"] .lp-card.c-green{border-left-color:var(--ok)}
+html[data-theme="light"] .lp-card.c-gold{border-left-color:var(--accent)}
+html[data-theme="light"] .lp-footer{border-top-color:rgba(0,119,181,0.15)}
+html[data-theme="light"] .lp-level-badge.l1{color:var(--warn);border-color:rgba(201,122,6,0.35);background:rgba(201,122,6,0.07)}
+html[data-theme="light"] .lp-level-badge.l2{color:var(--accent2);border-color:rgba(0,160,220,0.35);background:rgba(0,160,220,0.07)}
+html[data-theme="light"] .lp-level-badge.l3{color:var(--ok);border-color:rgba(26,138,90,0.35);background:rgba(26,138,90,0.07)}
+/* Connect modal light */
+html[data-theme="light"] .connect-box{background:var(--bg2);border-color:var(--border2)}
+html[data-theme="light"] .connect-box::before{background:linear-gradient(90deg,transparent,var(--accent2) 30%,var(--accent) 50%,var(--accent2) 70%,transparent)}
+html[data-theme="light"] .login-input{background:var(--bg3);border-color:var(--border);color:var(--text)}
+html[data-theme="light"] .login-input::placeholder{color:var(--muted)}
+html[data-theme="light"] .login-input:focus{border-color:var(--accent2)}
+html[data-theme="light"] #connect-btn.ready{background:var(--bg3);color:var(--accent);border-color:var(--accent)}
+html[data-theme="light"] #connect-btn.ready:hover{background:rgba(0,119,181,0.08)}
+html[data-theme="light"] .org-option{background:var(--bg3);border-color:var(--border)}
+html[data-theme="light"] .org-option:hover{border-color:var(--accent);background:rgba(0,119,181,0.04)}
 </style>
 </head>
 <body>
@@ -572,6 +689,7 @@ header::after{
         Troubleshoot
       </button>
       <button class="btn btn-primary" onclick="refreshAll()">↺ Refresh</button>
+      <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
       <span id="user-pill"></span>
       <button class="btn btn-danger" onclick="logout()">Sign Out</button>
     </div>
@@ -580,17 +698,19 @@ header::after{
   <div class="app-body">
     <nav class="sidebar">
       <div class="sidebar-section">
-        <div class="sidebar-label">Overview</div>
         <div class="nav-item active" onclick="showTab('dashboard');setActive(this)">
           <span class="nav-icon">◈</span><span class="nav-label">Dashboard</span>
         </div>
-        <div class="nav-item" onclick="showTab('aps');setActive(this)">
-          <span class="nav-icon">◉</span><span class="nav-label">Access Points</span>
-          <span class="nav-badge info" id="badge-aps">—</span>
+        <div class="nav-item" onclick="showTab('ai');setActive(this)">
+          <span class="nav-icon">✦</span><span class="nav-label">AI Assistant</span>
         </div>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-label">Network</div>
+        <div class="nav-item" onclick="showTab('aps');setActive(this)">
+          <span class="nav-icon">◉</span><span class="nav-label">Access Points</span>
+          <span class="nav-badge info" id="badge-aps">—</span>
+        </div>
         <div class="nav-item" onclick="showTab('wlans');setActive(this)">
           <span class="nav-icon">◈</span><span class="nav-label">WLANs</span>
           <span class="nav-badge ok" id="badge-wlans">—</span>
@@ -603,31 +723,28 @@ header::after{
           <span class="nav-icon">◭</span><span class="nav-label">WAN / Gateways</span>
           <span class="nav-badge ok" id="badge-wan">—</span>
         </div>
-      </div>
-      <div class="sidebar-section">
-        <div class="sidebar-label">Self-Driving</div>
-        <div class="nav-item" onclick="showTab('selfdriving');setActive(this)">
-          <span class="nav-icon">⟳</span><span class="nav-label">Pipeline</span>
-          <span class="nav-badge danger" id="badge-sd-issues" style="display:none">0</span>
-        </div>
-      </div>
-      <div class="sidebar-section">
-        <div class="sidebar-label">Intelligence</div>
-        <div class="nav-item" onclick="showTab('ai');setActive(this)">
-          <span class="nav-icon">✦</span><span class="nav-label">AI Assistant</span>
-        </div>
-        <div class="nav-item" onclick="showTab('n8n');setActive(this)">
-          <span class="nav-icon">⚡</span><span class="nav-label">n8n AI Ops</span>
-          <span class="nav-badge info" id="badge-n8n">—</span>
+        <div class="nav-item" onclick="showTab('nac');setActive(this)">
+          <span class="nav-icon">⬡</span><span class="nav-label">Access Assurance</span>
+          <span class="nav-badge info" id="badge-nac">—</span>
         </div>
         <div class="nav-item" onclick="showTab('insights');setActive(this)">
           <span class="nav-icon">◎</span><span class="nav-label">Org Insights</span>
           <span class="nav-badge ok" id="badge-insights" style="display:none">●</span>
         </div>
-        <div class="nav-item" onclick="showTab('nac');setActive(this)">
-          <span class="nav-icon">⬡</span><span class="nav-label">Access Assurance</span>
-          <span class="nav-badge info" id="badge-nac">—</span>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Self-Driving Intelligence</div>
+        <div class="nav-item" onclick="showTab('selfdriving');setActive(this)">
+          <span class="nav-icon">⟳</span><span class="nav-label">Pipeline</span>
+          <span class="nav-badge danger" id="badge-sd-issues" style="display:none">0</span>
         </div>
+        <div class="nav-item" onclick="showTab('n8n');setActive(this)">
+          <span class="nav-icon">⚡</span><span class="nav-label">n8n AI Ops</span>
+          <span class="nav-badge info" id="badge-n8n">—</span>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Audit</div>
         <div class="nav-item" onclick="showTab('log');setActive(this)">
           <span class="nav-icon">≡</span><span class="nav-label">Audit Log</span>
         </div>
@@ -1186,6 +1303,22 @@ function copyDemoCmd() {
   const cmd = `curl -X POST https://tatooine.thewifijedi.com/api/v1/orgs/${orgPart}/self-driving/pipeline -H "X-Mist-Token: $MIST_TOKEN" -H "Content-Type: application/json" -d '{"dry_run": true}'`;
   navigator.clipboard.writeText(cmd).catch(() => {});
 }
+
+function toggleTheme() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const next = isLight ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tat_theme', next);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = next === 'light' ? '☾' : '☀';
+}
+
+(function initTheme() {
+  const saved = localStorage.getItem('tat_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = saved === 'light' ? '☾' : '☀';
+})();
 
 function logout() {
   sessionStorage.removeItem('tat_token');
