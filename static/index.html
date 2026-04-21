@@ -2236,6 +2236,8 @@ function connectDashboardWS() {
       _prependWsEvent(msg.payload);
     } else if (msg.type === 'analysis') {
       _prependWsAnalysis(msg.payload);
+    } else if (msg.type === 'self_driving_pipeline') {
+      renderSdResult(msg.payload);
     }
   };
 
@@ -2409,26 +2411,155 @@ async function runSelfDrivingScan() {
 }
 
 async function runSelfDrivingPipeline() {
-  const btn     = document.getElementById('sd-run-btn');
-  const dryRun  = document.getElementById('sd-dryrun').checked;
-  btn.disabled  = true;
+  const btn    = document.getElementById('sd-run-btn');
+  const dryRun = document.getElementById('sd-dryrun').checked;
+  const hdr    = { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '' };
+  btn.disabled = true;
   btn.textContent = '⟳ Running...';
-  document.getElementById('sd-last-run').textContent = 'Running...';
-  renderSdLoading();
+
+  const spin = '<span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted2)"> </span>';
+  const setStage = (stage) => {
+    document.getElementById('sd-last-run').textContent = stage;
+  };
+
+  const t0 = Date.now();
+  let issues = [], telemetry = {}, diagnoses = [], aiAvail = true;
+
+  // ── L1 Scan ───────────────────────────────────────────────────────────────
+  setStage('L1: Scanning...');
+  document.getElementById('sd-l1-body').innerHTML = spin + 'Polling Mist telemetry...';
+  document.getElementById('sd-l2-summary').innerHTML = spin + 'Waiting for L1...';
+  document.getElementById('sd-l2-body').innerHTML = '';
+  document.getElementById('sd-l3-body').innerHTML = spin + 'Waiting for L2...';
+  document.getElementById('sd-l1-stamp').textContent = '—';
+  document.getElementById('sd-l2-stamp').textContent = '—';
+  document.getElementById('sd-l3-stamp').textContent = '—';
 
   try {
-    const r = await fetch('/api/v1/orgs/' + ORG_ID + '/self-driving/pipeline', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '' },
-      body: JSON.stringify({ dry_run: dryRun }),
-    });
-    renderSdResult(await r.json());
+    const r1 = await fetch('/api/v1/orgs/' + ORG_ID + '/self-driving/scan', { headers: hdr });
+    const d1 = await r1.json();
+    issues = d1.issues || [];
+    const ts = d1.telemetry_summary || {};
+    document.getElementById('sd-kpi-issues').textContent = d1.issues_found;
+    document.getElementById('sd-l1-stamp').textContent = ts.sites + ' sites · ' + ts.alarms + ' alarms · ' + d1.duration_ms + 'ms';
+    const SEV_COL = { critical:'var(--danger)', high:'var(--danger)', medium:'var(--warn)', low:'var(--ok)' };
+    document.getElementById('sd-l1-body').innerHTML = !issues.length
+      ? '<div style="color:var(--ok);font-family:var(--mono);font-size:11px">✓ No issues detected — network healthy</div>'
+      : issues.map(i => {
+          const col = SEV_COL[i.severity] || 'var(--muted)';
+          const cls = (i.severity==='critical'||i.severity==='high') ? 'danger' : 'warn';
+          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+            <div style="width:7px;height:7px;border-radius:50%;background:${col};margin-top:4px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11px;color:var(--text)">${i.device_name||i.site_name||'—'}</div>
+              <div style="font-size:10px;color:var(--muted2);margin-top:2px;line-height:1.5">${i.detail}</div>
+            </div>
+            <span class="tag ${cls}" style="white-space:nowrap">${i.type.replace(/_/g,' ')}</span>
+          </div>`;
+        }).join('');
+    // sidebar badge
+    const badge = document.getElementById('badge-sd-issues');
+    if (issues.length) { badge.textContent = issues.length; badge.style.display = ''; }
+    else badge.style.display = 'none';
+    injectPipelineEvents(issues, null, null);
   } catch(e) {
-    document.getElementById('sd-l1-body').innerHTML =
-      '<span style="color:var(--danger)">// Error: ' + e.message + '</span>';
-    document.getElementById('sd-last-run').textContent = 'Error';
+    document.getElementById('sd-l1-body').innerHTML = '<span style="color:var(--danger)">// L1 Error: ' + e.message + '</span>';
+    btn.disabled = false; btn.textContent = '▶ Run Pipeline'; setStage('Error'); return;
   }
 
+  if (!issues.length) {
+    document.getElementById('sd-l2-summary').innerHTML = '<span style="color:var(--ok)">✓ No issues to diagnose.</span>';
+    document.getElementById('sd-l3-body').innerHTML = '<div style="color:var(--ok);font-family:var(--mono);font-size:11px">✓ Network healthy — no actions required</div>';
+    document.getElementById('sd-kpi-critical').textContent = '0';
+    document.getElementById('sd-kpi-actions').textContent = '0';
+    document.getElementById('sd-kpi-duration').textContent = ((Date.now()-t0)/1000).toFixed(1) + 's';
+    document.getElementById('sd-last-run').textContent = new Date().toLocaleTimeString();
+    btn.disabled = false; btn.textContent = '▶ Run Pipeline'; return;
+  }
+
+  // ── L2 Diagnose ───────────────────────────────────────────────────────────
+  setStage('L2: Claude diagnosing...');
+  document.getElementById('sd-l2-summary').innerHTML = spin + 'Claude analyzing root cause...';
+
+  try {
+    const r2 = await fetch('/api/v1/orgs/' + ORG_ID + '/self-driving/diagnose', {
+      method: 'POST', headers: hdr,
+      body: JSON.stringify({ issues }),
+    });
+    const d2 = await r2.json();
+    diagnoses = d2.diagnoses || [];
+    aiAvail = d2.ai_available !== false;
+    document.getElementById('sd-kpi-critical').textContent = d2.critical_count || 0;
+    document.getElementById('sd-l2-stamp').textContent = diagnoses.length + ' diagnosed · ' + (d2.duration_ms||'?') + 'ms';
+    const RC_CLS = { RF_INTERFERENCE:'warn', AP_OFFLINE:'danger', AUTH_FAILURE:'danger',
+      DHCP_ISSUE:'warn', UPSTREAM_SWITCH:'danger', WAN_BROWNOUT:'danger',
+      FIRMWARE_BUG:'warn', CONFIG_ERROR:'warn', DEVICE_OFFLINE:'danger', UNKNOWN:'info' };
+    const aiWarning = !aiAvail
+      ? '<div style="font-family:var(--mono);font-size:10px;color:var(--warn);background:rgba(232,151,58,0.07);border:1px solid rgba(232,151,58,0.2);padding:6px 10px;margin-bottom:8px">⚠ AI offline — rule-based fallback. Add Anthropic credits to enable Claude.</div>'
+      : '';
+    document.getElementById('sd-l2-summary').innerHTML = aiWarning + '<span style="color:var(--accent2)">' + (d2.summary||'—') + '</span>';
+    document.getElementById('sd-l2-body').innerHTML = !diagnoses.length ? '' :
+      diagnoses.map(diag => {
+        const cls = RC_CLS[diag.root_cause] || 'info';
+        const conf = diag.confidence || 0;
+        const confCol = conf>=80 ? 'var(--ok)' : conf>=60 ? 'var(--warn)' : 'var(--muted)';
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <span class="tag ${cls}">${diag.root_cause.replace(/_/g,' ')}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:${confCol}">${conf}% conf.</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted2);margin-bottom:4px">${diag.explanation||'—'}</div>
+          ${diag.auto_remediable
+            ? `<div style="font-size:10px;color:var(--ok);font-family:var(--mono)">→ ${diag.recommended_action}</div>`
+            : `<div style="font-size:10px;color:var(--muted);font-family:var(--mono)">⊘ Manual: ${diag.recommended_action||'—'}</div>`}
+        </div>`;
+      }).join('');
+    injectPipelineEvents(null, diagnoses, null);
+  } catch(e) {
+    document.getElementById('sd-l2-summary').innerHTML = '<span style="color:var(--danger)">// L2 Error: ' + e.message + '</span>';
+    btn.disabled = false; btn.textContent = '▶ Run Pipeline'; setStage('Error'); return;
+  }
+
+  // ── L3 Remediate ─────────────────────────────────────────────────────────
+  setStage('L3: Remediating...');
+  document.getElementById('sd-l3-body').innerHTML = spin + 'Applying remediations...';
+
+  try {
+    const r3 = await fetch('/api/v1/orgs/' + ORG_ID + '/self-driving/remediate', {
+      method: 'POST', headers: hdr,
+      body: JSON.stringify({ diagnoses, issues, dry_run: dryRun }),
+    });
+    const d3 = await r3.json();
+    const actions = d3.actions || [];
+    document.getElementById('sd-kpi-actions').textContent   = d3.actions_taken;
+    document.getElementById('sd-kpi-actions-sub').textContent = d3.dry_run ? 'dry-run mode' : 'live mode';
+    document.getElementById('sd-kpi-duration').textContent  = ((Date.now()-t0)/1000).toFixed(1) + 's';
+    document.getElementById('sd-dryrun-badge').style.display = d3.dry_run ? '' : 'none';
+    document.getElementById('sd-l3-stamp').textContent = d3.actions_taken + ' acted · ' + d3.actions_skipped + ' skipped';
+    const ACT_ICONS = { REBOOT_SENT:'↺', DRY_RUN_REBOOT:'↺', REBOOT_QUEUED:'↺',
+      NOC_ALERT:'⚡', DRY_RUN_RRM_RESET:'◎', RRM_RESET_QUEUED:'◎',
+      ALERT_SENT:'⚡', SKIPPED:'⊘' };
+    document.getElementById('sd-l3-body').innerHTML = !actions.length
+      ? '<div style="color:var(--muted2);font-family:var(--mono);font-size:11px">// No actions — all issues require manual remediation</div>'
+      : actions.map(a => {
+          const icon = ACT_ICONS[a.action] || '◈';
+          const col  = a.action==='SKIPPED' ? 'var(--muted)' : 'var(--ok)';
+          const textCol = a.action==='SKIPPED' ? 'var(--muted)' : 'var(--text)';
+          return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div style="width:28px;height:28px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;color:${col};flex-shrink:0">${icon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11px;font-weight:500;color:${textCol}">${a.action.replace(/_/g,' ')}</div>
+              <div style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:2px">${a.message||a.recommendation||a.root_cause||'—'}</div>
+            </div>
+            ${a.dry_run!==undefined ? `<span style="font-family:var(--mono);font-size:9px;color:${a.dry_run?'var(--warn)':'var(--ok)'}">${a.dry_run?'DRY-RUN':'LIVE'}</span>` : ''}
+          </div>`;
+        }).join('');
+    injectPipelineEvents(null, null, actions);
+  } catch(e) {
+    document.getElementById('sd-l3-body').innerHTML = '<span style="color:var(--danger)">// L3 Error: ' + e.message + '</span>';
+  }
+
+  document.getElementById('sd-last-run').textContent = new Date().toLocaleTimeString();
   btn.disabled = false;
   btn.textContent = '▶ Run Pipeline';
 }
