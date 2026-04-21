@@ -732,7 +732,10 @@ header::after{
             <div class="section-title">n8n AI Ops</div>
             <div class="section-sub">Claude + Webhooks at <span style="font-family:var(--mono);color:var(--accent2)" id="n8n-url-label"></span></div>
           </div>
-          <button class="btn" onclick="loadN8n()" style="font-size:11px;padding:4px 10px">Refresh</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="ws-live-status" style="font-family:var(--mono);font-size:11px;color:var(--muted2)">○ WS</span>
+            <button class="btn" onclick="loadN8n()" style="font-size:11px;padding:4px 10px">Refresh</button>
+          </div>
         </div>
         <div class="grid-2" style="margin-bottom:16px">
           <div class="card">
@@ -1076,6 +1079,7 @@ function startApp() {
   document.getElementById('user-pill').textContent = SESSION.self?.email || '';
   loadAll();
   setTimeout(() => { loadWlans(); loadSwitches(); loadWan(); loadLog(); loadN8n(); loadNacRules(); }, 1200);
+  connectDashboardWS();
 }
 
 async function loadAll() {
@@ -2053,6 +2057,88 @@ function showNacRuleDetail(ruleJson) {
       </div>`;
     document.getElementById('device-modal-overlay').classList.add('open');
   } catch(e) {}
+}
+
+// ── Dashboard WebSocket (real-time event/analysis push from :8765) ─────────────
+let _dashWs = null, _dashWsRetry = 0;
+
+function connectDashboardWS() {
+  if (_dashWs && _dashWs.readyState < 2) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const statusEl = document.getElementById('ws-live-status');
+  _dashWs = new WebSocket(`${proto}//${location.host}/ws`);
+
+  _dashWs.onopen = () => {
+    _dashWsRetry = 0;
+    if (statusEl) { statusEl.textContent = '● WS LIVE'; statusEl.style.color = 'var(--ok)'; }
+  };
+
+  _dashWs.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+    if (msg.type === 'snapshot') {
+      if (msg.events?.length)   loadN8nEvents();
+      if (msg.analyses?.length) loadN8nAnalyses();
+    } else if (msg.type === 'event') {
+      _prependWsEvent(msg.payload);
+    } else if (msg.type === 'analysis') {
+      _prependWsAnalysis(msg.payload);
+    }
+  };
+
+  _dashWs.onclose = () => {
+    if (statusEl) { statusEl.textContent = '○ WS'; statusEl.style.color = 'var(--muted2)'; }
+    const delay = Math.min(30000, 1000 * Math.pow(2, _dashWsRetry++));
+    setTimeout(connectDashboardWS, delay);
+  };
+
+  _dashWs.onerror = () => {
+    if (statusEl) { statusEl.textContent = '● WS ERR'; statusEl.style.color = 'var(--danger)'; }
+  };
+}
+
+function _prependWsEvent(ev) {
+  const body = document.getElementById('n8n-events-body');
+  if (!body) return;
+  const placeholder = body.querySelector('[style*="No events"]');
+  if (placeholder) placeholder.remove();
+  const ts = ev._received_at ? new Date(ev._received_at * 1000).toLocaleTimeString() : '—';
+  const topic = ev.topic || 'unknown';
+  const cnt = ev.events?.length ?? '';
+  const lvl = topic.includes('alarm') || topic.includes('device_down') ? 'ERR'
+            : topic.includes('warn') ? 'WARN' : 'INFO';
+  const div = document.createElement('div');
+  div.className = 'event-item';
+  div.style.animation = 'fadeInUp 0.3s ease-out forwards';
+  div.innerHTML = `<span class="event-level ${lvl}">${lvl}</span>
+    <div class="event-msg"><strong>${topic}</strong>${cnt ? ' · '+cnt+' event(s)' : ''}</div>
+    <span class="event-time">${ts}</span>`;
+  body.insertBefore(div, body.firstChild);
+  const stamp = document.getElementById('n8n-events-stamp');
+  if (stamp) stamp.textContent = body.querySelectorAll('.event-item').length + ' EVENTS BUFFERED';
+}
+
+function _prependWsAnalysis(a) {
+  const body = document.getElementById('n8n-analyses-body');
+  if (!body) return;
+  const placeholder = body.querySelector('[style*="No analyses"]');
+  if (placeholder) placeholder.remove();
+  const ts = a._received_at ? new Date(a._received_at * 1000).toLocaleString() : '';
+  const priCls = a.priority === 'P1' ? 'danger' : a.priority === 'P2' ? 'warn' : 'ok';
+  const ec = a.event_context || {};
+  const div = document.createElement('div');
+  div.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;background:var(--bg3);animation:fadeInUp 0.3s ease-out forwards';
+  div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+    <span class="tag ${priCls}" style="font-size:11px">${a.priority||'?'}</span>
+    <span style="font-size:12px;font-weight:500">${ec.event_type||'Event'}</span>
+    ${ec.site_name?`<span style="font-size:11px;color:var(--muted)">${ec.site_name}</span>`:''}
+    ${ec.device_name?`<span class="tag info" style="font-size:10px">${ec.device_name}</span>`:''}
+    <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)">${ts}</span>
+  </div>
+  <div style="font-size:11px;line-height:1.7;color:var(--text);white-space:pre-wrap;max-height:180px;overflow-y:auto">${a.analysis||'—'}</div>`;
+  body.insertBefore(div, body.firstChild);
+  const badge = document.getElementById('badge-n8n');
+  if (badge) badge.textContent = body.querySelectorAll('div[style]').length || '1';
 }
 
 // ── Org Insights SSE Stream ────────────────────────────────────────────────────

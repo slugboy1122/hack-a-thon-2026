@@ -3,6 +3,7 @@ import json
 import logging
 import time
 import threading
+import asyncio
 from collections import deque
 from datetime import datetime
 
@@ -14,6 +15,12 @@ from dotenv import load_dotenv
 import requests
 import anthropic
 import websocket
+try:
+    from websockets.server import serve as _ws_serve
+    _WS_AVAILABLE = True
+except ImportError:
+    _WS_AVAILABLE = False
+
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 load_dotenv()
@@ -51,6 +58,72 @@ _automation_counter = [1]
 # Ring buffers for n8n event/analysis feed (survives only while container runs)
 _event_buffer    = deque(maxlen=50)
 _analysis_buffer = deque(maxlen=20)
+
+
+# ============================================================================
+# WEBSOCKET SERVER  (real-time push to dashboard clients on :8765)
+# ============================================================================
+
+_ws_clients: set = set()
+_ws_loop: asyncio.AbstractEventLoop | None = None
+
+
+async def _ws_handler(websocket):
+    _ws_clients.add(websocket)
+    log.info('WS client connected (%d total)', len(_ws_clients))
+    try:
+        await websocket.send(json.dumps({
+            'type': 'snapshot',
+            'events': list(_event_buffer)[:10],
+            'analyses': list(_analysis_buffer)[:5],
+        }))
+        async for message in websocket:
+            if message == 'ping':
+                await websocket.send(json.dumps({'type': 'pong'}))
+    except Exception:
+        pass
+    finally:
+        _ws_clients.discard(websocket)
+        log.info('WS client disconnected (%d remaining)', len(_ws_clients))
+
+
+async def _ws_broadcast_coro(payload: dict):
+    if not _ws_clients:
+        return
+    msg = json.dumps(payload)
+    dead: set = set()
+    for client in list(_ws_clients):
+        try:
+            await client.send(msg)
+        except Exception:
+            dead.add(client)
+    _ws_clients -= dead
+
+
+def ws_broadcast(payload: dict):
+    """Thread-safe broadcast from synchronous Flask handlers."""
+    if _ws_loop is not None and _ws_loop.is_running():
+        asyncio.run_coroutine_threadsafe(_ws_broadcast_coro(payload), _ws_loop)
+
+
+def _start_ws_server():
+    global _ws_loop
+    if not _WS_AVAILABLE:
+        log.warning('websockets not installed — skipping WS server')
+        return
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    _ws_loop = loop
+
+    async def _serve():
+        async with _ws_serve(_ws_handler, '0.0.0.0', 8765):
+            log.info('WebSocket server listening on :8765')
+            await asyncio.Future()
+
+    loop.run_until_complete(_serve())
+
+
+threading.Thread(target=_start_ws_server, daemon=True, name='ws-server').start()
 
 
 # ============================================================================
@@ -652,6 +725,7 @@ def mist_webhook_receiver():
 
     _event_buffer.appendleft(payload)
     threading.Thread(target=_n8n_forward, args=('mist-events', payload), daemon=True).start()
+    ws_broadcast({'type': 'event', 'payload': payload})
     log.info('Mist webhook received: topic=%s events=%s',
              payload.get('topic', '?'), len(payload.get('events', [])))
     return jsonify({'status': 'ok', 'forwarded_to': f'{N8N_URL}/webhook/mist-events'}), 200
@@ -663,8 +737,17 @@ def n8n_analysis_callback():
     data = request.get_json(silent=True) or {}
     data['_received_at'] = int(time.time())
     _analysis_buffer.appendleft(data)
+    ws_broadcast({'type': 'analysis', 'payload': data})
     log.info('n8n analysis received: priority=%s', data.get('priority', '?'))
     return jsonify({'status': 'ok'}), 200
+
+
+@app.route('/api/ws/status', methods=['GET'])
+def ws_status():
+    return jsonify({
+        'connected_clients': len(_ws_clients),
+        'server_running': _ws_loop is not None and _ws_loop.is_running(),
+    })
 
 
 @app.route('/api/n8n/status', methods=['GET'])
