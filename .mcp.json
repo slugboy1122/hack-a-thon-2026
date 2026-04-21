@@ -6,6 +6,17 @@
       "headers": {
         "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYjliYTc2ZS04YjY5LTQ4OWEtYmRjNC04MzVlY2RjYWU3MTkiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjQxZDQzNTM0LTRhNjItNDQ3NS1iZDlhLTRjMDUyYmE4Nzk5ZSIsImlhdCI6MTc3NjY0NDA3NX0.8gtHtWZsBrPwPxoQ8hgdCtNaITjFJt6CZ83R3gnVcOo"
       }
+    },
+    "mist-cloud": {
+      "type": "stdio",
+      "command": "/Users/ghumphrey/.nvm/versions/node/v25.8.1/bin/mcp-remote",
+      "args": [
+        "https://mcp.ai.juniper.net/mcp/mist",
+        "--header",
+        "Authorization: Bearer Y5HXIAZczVdAunzBWjvfqirGCZ7g04LbdaSFwPAUFrjc8AJGwdL23hdLdni9CtgwymIssayc7q5j8IkQmNwUem5Zw4fkLh9C",
+        "--header",
+        "X-Mist-Base-URL: https://api.mist.com"
+      ]
     }
   }
 }
