@@ -632,6 +632,63 @@
           "responseCode": 200
         }
       }
+    },
+    {
+      "id": "sd-0001-0001-0001-0001-000000000001",
+      "name": "Self-Driving Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1200, 400],
+      "webhookId": "self-driving-trigger",
+      "parameters": {
+        "path": "self-driving-trigger",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "sd-0001-0001-0001-0001-000000000002",
+      "name": "Run Self-Driving Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-960, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://mist-api:8000/api/v1/orgs/{{ $json.body.org_id || $json.org_id }}/self-driving/pipeline",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Mist-Token", "value": "={{ $json.body.token || $json.token || '' }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ dry_run: $json.body.dry_run !== false, source: 'n8n' }) }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "sd-0001-0001-0001-0001-000000000003",
+      "name": "Self-Driving Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-720, 400],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
     }
   ],
   "connections": {
@@ -822,6 +879,20 @@
       "main": [
         [
           { "node": "API Response", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Self-Driving Trigger": {
+      "main": [
+        [
+          { "node": "Run Self-Driving Pipeline", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Run Self-Driving Pipeline": {
+      "main": [
+        [
+          { "node": "Self-Driving Response", "type": "main", "index": 0 }
         ]
       ]
     }

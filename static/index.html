@@ -38,82 +38,79 @@ body::before{
 ::-webkit-scrollbar-thumb{background:rgba(200,150,55,0.25);border-radius:0}
 ::-webkit-scrollbar-thumb:hover{background:rgba(200,150,55,0.45)}
 
-/* ══ LOGIN ══════════════════════════════════════════════════════════════════════ */
-#login-screen{
-  display:flex;align-items:center;justify-content:center;min-height:100vh;
-  background:radial-gradient(ellipse 100% 60% at 50% 0%,rgba(200,120,30,0.07) 0%,transparent 65%),var(--bg);
-  position:relative;overflow:hidden;
-}
-#login-screen::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(232,160,64,0.4) 30%,rgba(196,79,53,0.3) 50%,rgba(232,160,64,0.4) 70%,transparent);
-}
-.login-suns{
-  position:absolute;top:-60px;left:50%;transform:translateX(-50%);
-  width:320px;height:160px;pointer-events:none;
-}
-.login-box{
-  width:440px;background:var(--bg2);
-  border:1px solid var(--border2);
-  padding:40px 36px 32px;
-  box-shadow:0 0 0 1px rgba(200,150,55,0.06),0 32px 80px rgba(0,0,0,0.7),inset 0 1px 0 rgba(200,150,55,0.08);
-  position:relative;z-index:2;animation:terminalAppear 0.4s ease-out forwards;
-}
-@keyframes terminalAppear{
-  from{opacity:0;transform:translateY(16px)}
-  to{opacity:1;transform:translateY(0)}
-}
-.login-box::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,transparent,var(--accent) 30%,var(--warn) 50%,var(--accent) 70%,transparent);
-}
-.login-logo{display:flex;align-items:center;gap:14px;margin-bottom:28px}
-.login-logo-icon{
-  width:44px;height:44px;position:relative;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-}
-.login-logo-sun-a{
-  position:absolute;width:28px;height:28px;border-radius:50%;
-  background:radial-gradient(circle,#ffd475 0%,#e8973a 45%,rgba(232,150,58,0) 75%);
-  top:4px;left:2px;animation:sunPulse 4s ease-in-out infinite;
-}
-.login-logo-sun-b{
-  position:absolute;width:20px;height:20px;border-radius:50%;
-  background:radial-gradient(circle,#fff0b0 0%,#ff9a3c 45%,rgba(255,154,60,0) 75%);
-  bottom:4px;right:2px;animation:sunPulse 4s ease-in-out infinite;animation-delay:1.8s;
-}
+/* ══ LANDING PAGE ═══════════════════════════════════════════════════════════════ */
+#login-screen{display:flex;flex-direction:column;min-height:100vh;background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(232,160,64,0.07) 0%,transparent 60%),var(--bg)}
+.lp-nav{display:flex;align-items:center;justify-content:space-between;padding:14px 40px;border-bottom:1px solid var(--border);background:rgba(7,5,4,0.96);backdrop-filter:blur(8px);position:sticky;top:0;z-index:10}
+.lp-nav-logo{display:flex;align-items:center;gap:12px}
+.lp-nav-sun-wrap{position:relative;width:36px;height:36px;flex-shrink:0}
+.lp-nav-sun-a{position:absolute;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle,#ffd475 0%,#e8973a 40%,rgba(232,150,58,0) 70%);top:3px;left:2px;animation:sunPulse 4s ease-in-out infinite}
+.lp-nav-sun-b{position:absolute;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle,#fff0c0 0%,#ff9a3c 40%,rgba(255,154,60,0) 70%);bottom:3px;right:2px;animation:sunPulse 4s ease-in-out infinite;animation-delay:1.8s}
 @keyframes sunPulse{0%,100%{opacity:0.7;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
-.login-logo-text{}
-.login-logo-title{font-family:var(--display);font-size:18px;font-weight:700;color:var(--text);letter-spacing:0.15em;line-height:1}
-.login-logo-sub{font-family:var(--mono);font-size:9px;color:var(--muted2);letter-spacing:0.12em;margin-top:4px;text-transform:uppercase}
-.login-hint{font-family:var(--mono);font-size:11px;color:var(--muted2);margin-bottom:22px;line-height:1.7;border-left:2px solid var(--border2);padding-left:10px}
+.lp-nav-title{font-family:var(--display);font-size:15px;font-weight:700;letter-spacing:0.2em;color:var(--text);line-height:1}
+.lp-nav-sub{font-family:var(--mono);font-size:8px;color:var(--muted2);letter-spacing:0.14em;text-transform:uppercase;margin-top:3px}
+.lp-connect-btn{padding:10px 22px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;transition:all var(--transition);box-shadow:0 0 12px rgba(232,160,64,0.08)}
+.lp-connect-btn:hover{background:rgba(232,160,64,0.1);box-shadow:0 0 24px rgba(232,160,64,0.2)}
+.lp-hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 40px 52px;text-align:center;position:relative}
+.lp-hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:1px;height:72px;background:linear-gradient(180deg,transparent,rgba(232,160,64,0.28))}
+.lp-eyebrow{font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:20px}
+.lp-headline{font-family:var(--display);font-size:52px;font-weight:700;letter-spacing:0.06em;color:var(--text);line-height:1.08;margin-bottom:18px;text-shadow:0 0 60px rgba(232,160,64,0.12)}
+.lp-headline span{color:var(--accent)}
+.lp-subheadline{font-family:var(--sans);font-size:18px;font-weight:400;color:var(--muted2);margin-bottom:12px;max-width:520px;line-height:1.5}
+.lp-desc{font-family:var(--mono);font-size:11px;color:var(--muted);max-width:500px;line-height:1.9;margin-bottom:32px}
+.lp-levels{display:flex;gap:8px;margin-bottom:36px;justify-content:center;flex-wrap:wrap}
+.lp-level-badge{padding:4px 12px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;border:1px solid;transition:all var(--transition)}
+.lp-level-badge.l1{color:var(--warn);border-color:rgba(232,151,58,0.35);background:rgba(232,151,58,0.07)}
+.lp-level-badge.l2{color:var(--accent2);border-color:rgba(90,184,216,0.35);background:rgba(90,184,216,0.07)}
+.lp-level-badge.l3{color:var(--ok);border-color:rgba(68,196,154,0.35);background:rgba(68,196,154,0.07)}
+.lp-hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.lp-btn-primary{padding:13px 34px;background:rgba(232,160,64,0.07);border:1px solid var(--accent);color:var(--accent);font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;transition:all var(--transition);box-shadow:0 0 20px rgba(232,160,64,0.08)}
+.lp-btn-primary:hover{background:rgba(232,160,64,0.14);box-shadow:0 0 36px rgba(232,160,64,0.2)}
+.lp-btn-secondary{padding:13px 24px;background:transparent;border:1px solid var(--border2);color:var(--muted2);font-family:var(--mono);font-size:11px;letter-spacing:0.08em;cursor:pointer;transition:all var(--transition)}
+.lp-btn-secondary:hover{border-color:var(--accent2);color:var(--accent2)}
+.lp-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--border)}
+.lp-card{background:var(--bg);padding:26px 28px 22px;transition:background var(--transition);border-left:3px solid transparent}
+.lp-card:hover{background:var(--bg2)}
+.lp-card.c-amber{border-left-color:var(--warn)}.lp-card.c-teal{border-left-color:var(--accent2)}.lp-card.c-green{border-left-color:var(--ok)}.lp-card.c-gold{border-left-color:var(--accent)}.lp-card.c-dim{border-left-color:var(--muted)}
+.lp-card-icon{font-size:18px;margin-bottom:10px;opacity:0.8}
+.lp-card-level{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:5px}
+.lp-card-title{font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:0.08em;color:var(--text);margin-bottom:7px}
+.lp-card-body{font-family:var(--mono);font-size:10px;color:var(--muted2);line-height:1.75}
+.lp-footer{padding:14px 40px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.lp-footer a{color:var(--accent2);text-decoration:none}
+.lp-footer a:hover{text-decoration:underline}
+
+/* ══ CONNECT MODAL ═══════════════════════════════════════════════════════════════ */
+#connect-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:1000;align-items:center;justify-content:center}
+#connect-modal.open{display:flex}
+.connect-box{width:460px;background:var(--bg2);border:1px solid var(--border2);padding:38px 34px 30px;position:relative;box-shadow:0 0 0 1px rgba(200,150,55,0.06),0 32px 80px rgba(0,0,0,0.7);animation:connAppear 0.22s ease-out forwards}
+@keyframes connAppear{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.connect-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent) 30%,var(--warn) 50%,var(--accent) 70%,transparent)}
+.connect-close{position:absolute;top:12px;right:12px;width:26px;height:26px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--transition)}
+.connect-close:hover{color:var(--text);border-color:var(--accent)}
+.connect-logo{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.connect-logo-icon{position:relative;width:40px;height:40px;flex-shrink:0}
+.connect-sun-a{position:absolute;width:25px;height:25px;border-radius:50%;background:radial-gradient(circle,#ffd475 0%,#e8973a 45%,rgba(232,150,58,0) 75%);top:3px;left:2px;animation:sunPulse 4s ease-in-out infinite}
+.connect-sun-b{position:absolute;width:17px;height:17px;border-radius:50%;background:radial-gradient(circle,#fff0b0 0%,#ff9a3c 45%,rgba(255,154,60,0) 75%);bottom:3px;right:2px;animation:sunPulse 4s ease-in-out infinite;animation-delay:1.8s}
+.connect-title{font-family:var(--display);font-size:16px;font-weight:700;letter-spacing:0.12em;color:var(--text)}
+.connect-sub{font-family:var(--mono);font-size:9px;color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-top:4px}
+.connect-desc{font-family:var(--mono);font-size:11px;color:var(--muted2);line-height:1.75;margin-bottom:20px;border-left:2px solid var(--border2);padding-left:10px}
 .login-field{margin-bottom:14px}
 .login-label{font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
-.login-input{
-  width:100%;background:var(--bg3);border:1px solid var(--border);
-  color:var(--text);font-family:var(--mono);font-size:12px;
-  padding:10px 12px;outline:none;transition:border-color var(--transition),box-shadow var(--transition);
-  border-radius:0;
-}
+.login-input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:10px 12px;outline:none;transition:border-color var(--transition),box-shadow var(--transition);border-radius:0}
 .login-input:focus{border-color:var(--accent2);box-shadow:0 0 0 1px rgba(90,184,216,0.15)}
 .login-input::placeholder{color:var(--muted)}
-.login-orgid{font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);padding:8px 12px;margin-bottom:18px;letter-spacing:0.03em}
-#login-btn{
-  width:100%;padding:12px;background:transparent;color:var(--muted2);
-  border:1px solid var(--border);font-family:var(--display);font-size:13px;
-  font-weight:600;letter-spacing:0.12em;cursor:not-allowed;transition:all var(--transition);
-  text-transform:uppercase;
-}
-#login-btn.ready{
-  background:var(--bg3);color:var(--accent);border-color:var(--accent);
-  cursor:pointer;box-shadow:0 0 20px rgba(232,160,64,0.1);
-}
-#login-btn.ready:hover{background:rgba(232,160,64,0.08);box-shadow:0 0 30px rgba(232,160,64,0.18)}
-#login-error{margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--danger);min-height:16px}
-#email-hint{margin-top:5px;font-family:var(--mono);font-size:10px;min-height:14px}
-.login-footer{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted2);line-height:1.7;font-family:var(--mono)}
-.login-footer a{color:var(--accent2);text-decoration:none}
-.login-footer a:hover{text-decoration:underline}
+.org-option{padding:10px 12px;background:var(--bg3);border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all var(--transition);font-family:var(--mono);font-size:11px}
+.org-option:hover{border-color:var(--accent);background:rgba(232,160,64,0.04)}
+.org-option-name{color:var(--text);font-weight:600;margin-bottom:2px}
+.org-option-id{color:var(--muted2);font-size:10px}
+.org-option-role{color:var(--accent2);font-size:9px;text-transform:uppercase;letter-spacing:0.06em;margin-top:2px}
+#connect-btn{width:100%;padding:12px;background:transparent;color:var(--muted2);border:1px solid var(--border);font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:0.12em;cursor:not-allowed;transition:all var(--transition);text-transform:uppercase}
+#connect-btn.ready{background:var(--bg3);color:var(--accent);border-color:var(--accent);cursor:pointer;box-shadow:0 0 20px rgba(232,160,64,0.1)}
+#connect-btn.ready:hover{background:rgba(232,160,64,0.08);box-shadow:0 0 30px rgba(232,160,64,0.18)}
+#connect-error{margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--danger);min-height:16px}
+.connect-footer{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.connect-footer a{color:var(--accent2);text-decoration:none}
+.connect-footer a:hover{text-decoration:underline}
 
 /* ══ APP SHELL ════════════════════════════════════════════════════════════════════ */
 #app-shell{display:none;flex-direction:column;height:100vh}
@@ -429,50 +426,122 @@ header::after{
 </head>
 <body>
 
-<!-- ══ LOGIN ══════════════════════════════════════════════════════════════════ -->
+<!-- ══ LANDING PAGE ══════════════════════════════════════════════════════════════ -->
 <div id="login-screen">
-  <div class="login-box">
-    <div class="login-logo">
-      <div class="login-logo-icon">
-        <div class="login-logo-sun-a"></div>
-        <div class="login-logo-sun-b"></div>
+  <nav class="lp-nav">
+    <div class="lp-nav-logo">
+      <div class="lp-nav-sun-wrap">
+        <div class="lp-nav-sun-a"></div>
+        <div class="lp-nav-sun-b"></div>
       </div>
-      <div class="login-logo-text">
-        <div class="login-logo-title">TATOOINE</div>
-        <div class="login-logo-sub">Mist Network Intelligence</div>
+      <div>
+        <div class="lp-nav-title">TATOOINE</div>
+        <div class="lp-nav-sub">Mist Network Intelligence</div>
       </div>
     </div>
-    <div class="login-hint">
-      // tatooine.thewifijedi.com<br>
-      // @hpe.com · @juniper.net · Token held in session memory only.
+    <button class="lp-connect-btn" onclick="openConnectModal()">Connect an Org →</button>
+  </nav>
+
+  <div class="lp-hero">
+    <div class="lp-eyebrow">Mist Field PLM Hackathon · Self-Driving Network Track</div>
+    <h1 class="lp-headline">SELF-DRIVING<br><span>NETWORK</span> INTELLIGENCE</h1>
+    <div class="lp-subheadline">From telemetry to action — automatically.</div>
+    <div class="lp-desc">
+      Tatooine closes the loop from Mist telemetry to remediation.<br>
+      Claude AI diagnoses root cause. Autonomous actions restore service.<br>
+      No manual intervention. No missed alerts. No guesswork.
     </div>
-    <div class="login-field">
-      <div class="login-label">Email</div>
-      <input id="login-email" class="login-input" type="email"
-        placeholder="you@hpe.com or you@juniper.net"
-        oninput="onEmailInput(this.value)"
-        onkeydown="if(event.key==='Enter')document.getElementById('login-token').focus()">
-      <div id="email-hint"></div>
+    <div class="lp-levels">
+      <span class="lp-level-badge l1">L1 — Intelligent Detection</span>
+      <span class="lp-level-badge l2">L2 — AI Root-Cause Diagnosis</span>
+      <span class="lp-level-badge l3">L3 — Autonomous Remediation</span>
     </div>
-    <div class="login-field">
-      <div class="login-label">Mist API Token</div>
-      <input id="login-token" class="login-input" type="password"
-        placeholder="Paste your Mist API token"
-        oninput="onTokenInput()"
-        onkeydown="if(event.key==='Enter')document.getElementById('login-orgid-input').focus()">
+    <div class="lp-hero-cta">
+      <button class="lp-btn-primary" onclick="openConnectModal()">Connect an Org →</button>
+      <button class="lp-btn-secondary" onclick="copyDemoCmd()">Copy Demo Command</button>
     </div>
-    <div class="login-field">
-      <div class="login-label">Mist Org ID</div>
-      <input id="login-orgid-input" class="login-input" type="text"
-        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-        oninput="onTokenInput()"
-        onkeydown="if(event.key==='Enter')doLogin()">
-      <div id="orgid-hint" style="margin-top:5px;font-family:var(--mono);font-size:10px;min-height:14px"></div>
+  </div>
+
+  <div class="lp-cards">
+    <div class="lp-card c-amber">
+      <div class="lp-card-icon">⟳</div>
+      <div class="lp-card-level">Level 1</div>
+      <div class="lp-card-title">Intelligent Detection</div>
+      <div class="lp-card-body">Polls Mist alarms, disconnected devices, and org health in real time. Classifies issues by severity before a human even notices.</div>
     </div>
-    <button id="login-btn" onclick="doLogin()" disabled>Authenticate →</button>
-    <div id="login-error"></div>
-    <div class="login-footer">
-      Token &amp; Org ID: <a href="https://manage.mist.com/user.html#!api" target="_blank">manage.mist.com → My Profile → API Token</a>
+    <div class="lp-card c-teal">
+      <div class="lp-card-icon">◈</div>
+      <div class="lp-card-level">Level 2</div>
+      <div class="lp-card-title">AI Root-Cause Analysis</div>
+      <div class="lp-card-body">Claude AI classifies root cause with confidence scoring: RF interference, upstream switch failure, firmware bugs, auth failures, WAN brownouts.</div>
+    </div>
+    <div class="lp-card c-green">
+      <div class="lp-card-icon">▶</div>
+      <div class="lp-card-level">Level 3</div>
+      <div class="lp-card-title">Autonomous Remediation</div>
+      <div class="lp-card-body">Executes AP reboots, RRM resets, and NOC alerts automatically. Dry-run mode for safe demos. Real actions on live infrastructure.</div>
+    </div>
+    <div class="lp-card c-gold">
+      <div class="lp-card-icon">▣</div>
+      <div class="lp-card-level">Dashboard</div>
+      <div class="lp-card-title">KRAYT TERMINAL</div>
+      <div class="lp-card-body">9-tab command center: APs, Switches, WAN, WLANs, Self-Driving pipeline, n8n AI Ops, Org Insights, Access Assurance, Audit Log.</div>
+    </div>
+    <div class="lp-card c-dim">
+      <div class="lp-card-icon">⬡</div>
+      <div class="lp-card-level">Automation</div>
+      <div class="lp-card-title">n8n AI Ops Workflow</div>
+      <div class="lp-card-body">Mist webhooks trigger Claude analysis. Results callback to the live dashboard. Self-hosted, Cloudflare tunneled, zero cloud dependency.</div>
+    </div>
+    <div class="lp-card c-dim">
+      <div class="lp-card-icon">≡</div>
+      <div class="lp-card-level">API Layer</div>
+      <div class="lp-card-title">40+ Mist API Proxies</div>
+      <div class="lp-card-body">Complete Mist API surface: sites, devices, clients, alarms, SLE, Marvis, NAC, audit log, WAN gateways, and the full self-driving pipeline.</div>
+    </div>
+  </div>
+
+  <div class="lp-footer">
+    <span>Token held in session memory only · Never stored server-side</span>
+    <span><a href="https://manage.mist.com/user.html#!api" target="_blank">Get your API token →</a></span>
+  </div>
+</div>
+
+<!-- ══ CONNECT MODAL ════════════════════════════════════════════════════════════ -->
+<div id="connect-modal">
+  <div class="connect-box">
+    <button class="connect-close" onclick="closeConnectModal()">✕</button>
+    <div class="connect-logo">
+      <div class="connect-logo-icon">
+        <div class="connect-sun-a"></div>
+        <div class="connect-sun-b"></div>
+      </div>
+      <div>
+        <div class="connect-title">Connect Your Org</div>
+        <div class="connect-sub">Tatooine · Mist Network Intelligence</div>
+      </div>
+    </div>
+    <div class="connect-desc">
+      Enter your Mist API token. Org access and permissions<br>
+      are derived automatically from your token's privileges.
+    </div>
+    <div id="connect-token-section">
+      <div class="login-field">
+        <div class="login-label">Mist API Token</div>
+        <input id="connect-token" class="login-input" type="password"
+          placeholder="Paste your Mist API token"
+          oninput="onConnectTokenInput()"
+          onkeydown="if(event.key==='Enter')doConnect()">
+      </div>
+      <button id="connect-btn" onclick="doConnect()" disabled>Connect →</button>
+    </div>
+    <div id="connect-org-picker" style="display:none">
+      <div class="login-label" style="margin-bottom:10px">Select Organization</div>
+      <div id="connect-org-list"></div>
+    </div>
+    <div id="connect-error"></div>
+    <div class="connect-footer">
+      API token: <a href="https://manage.mist.com/user.html#!api" target="_blank">manage.mist.com → My Profile → API Token</a>
     </div>
   </div>
 </div>
@@ -1009,7 +1078,6 @@ header::after{
 
 <script>
 // ══ SESSION ════════════════════════════════════════════════════════════════════
-const ALLOWED_DOMAINS = ['hpe.com', 'juniper.net'];
 let ORG_ID = sessionStorage.getItem('tat_orgid') || '';
 const SESSION = {
   token: sessionStorage.getItem('tat_token') || null,
@@ -1023,84 +1091,100 @@ let allWan      = [];
 let chatHistory = [];
 let tshootType = 'wireless';
 
-// ── Auth helpers ───────────────────────────────────────────────────────────────
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// ── Connect modal ──────────────────────────────────────────────────────────────
+let _connectPending = { token: null, selfData: null, privs: [] };
 
-function emailDomain(v) { return v.includes('@') ? v.split('@').pop().toLowerCase() : ''; }
-function emailAllowed(v) { return ALLOWED_DOMAINS.includes(emailDomain(v)); }
-
-function onEmailInput(v) {
-  const hint = document.getElementById('email-hint');
-  const domain = emailDomain(v);
-  if (!domain) {
-    hint.innerHTML = '<span style="color:var(--muted)">enter a valid email</span>';
-  } else if (emailAllowed(v)) {
-    hint.innerHTML = '<span style="color:var(--ok)">✓ '+v+'</span>';
-  } else {
-    hint.innerHTML = '<span style="color:var(--danger)">✗ must be @hpe.com or @juniper.net</span>';
-  }
-  updateLoginBtn();
+function openConnectModal() {
+  document.getElementById('connect-modal').classList.add('open');
+  document.getElementById('connect-error').textContent = '';
+  setTimeout(() => document.getElementById('connect-token').focus(), 80);
 }
 
-function onTokenInput() {
-  const orgVal = document.getElementById('login-orgid-input').value.trim();
-  const hint   = document.getElementById('orgid-hint');
-  if (!orgVal) { hint.textContent = ''; }
-  else if (UUID_RE.test(orgVal)) { hint.innerHTML = '<span style="color:var(--ok)">✓ valid UUID</span>'; }
-  else { hint.innerHTML = '<span style="color:var(--warn)">format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</span>'; }
-  updateLoginBtn();
+function closeConnectModal() {
+  document.getElementById('connect-modal').classList.remove('open');
 }
 
-function updateLoginBtn() {
-  const email  = document.getElementById('login-email').value.trim();
-  const token  = document.getElementById('login-token').value.trim();
-  const orgVal = document.getElementById('login-orgid-input').value.trim();
-  const ready  = emailAllowed(email) && token.length > 20 && UUID_RE.test(orgVal);
-  const btn = document.getElementById('login-btn');
+function onConnectTokenInput() {
+  const tok = document.getElementById('connect-token').value.trim();
+  const btn = document.getElementById('connect-btn');
+  const ready = tok.length > 20;
   btn.disabled = !ready;
   btn.className = ready ? 'ready' : '';
 }
 
-async function doLogin() {
-  const email  = document.getElementById('login-email').value.trim();
-  const token  = document.getElementById('login-token').value.trim();
-  const orgVal = document.getElementById('login-orgid-input').value.trim();
-  const err    = document.getElementById('login-error');
-  const btn    = document.getElementById('login-btn');
+async function doConnect() {
+  const token = document.getElementById('connect-token').value.trim();
+  const err   = document.getElementById('connect-error');
+  const btn   = document.getElementById('connect-btn');
   err.textContent = '';
-  if (!emailAllowed(email)) {
-    err.textContent = 'Email must be @hpe.com or @juniper.net.';
-    return;
-  }
-  btn.disabled = true; btn.textContent = 'Validating...';
+  if (token.length < 20) return;
+  btn.disabled = true; btn.className = ''; btn.textContent = 'Connecting...';
   try {
     const r = await fetch('/api/validate', { headers: { 'X-Mist-Token': token } });
     const d = await r.json();
     if (r.ok && d.email !== undefined) {
-      // Confirm the org ID exists in privileges
-      const privs = d.privileges || [];
-      const orgMatch = privs.find(p => p.org_id === orgVal) || privs[0];
-      if (privs.length && !privs.find(p => p.org_id === orgVal)) {
-        err.textContent = 'Org ID not found in this token\'s privileges. Available: ' +
-          privs.map(p => p.org_id).join(', ');
-        btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
+      // Deduplicate privileges by org_id
+      const orgMap = new Map();
+      for (const p of (d.privileges || [])) {
+        if (p.org_id && !orgMap.has(p.org_id)) orgMap.set(p.org_id, p);
+      }
+      const privs = [...orgMap.values()];
+      if (privs.length === 0) {
+        err.textContent = 'No org access found for this token.';
+        btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Connect →';
         return;
       }
-      ORG_ID = orgVal;
-      SESSION.token = token;
-      SESSION.self  = { ...d, email, org_id: orgVal };
-      sessionStorage.setItem('tat_token', token);
-      sessionStorage.setItem('tat_orgid', orgVal);
-      sessionStorage.setItem('tat_self', JSON.stringify(SESSION.self));
-      startApp();
+      if (privs.length === 1) {
+        _doSelectOrg(token, d, privs[0]);
+      } else {
+        _connectPending = { token, selfData: d, privs };
+        document.getElementById('connect-token-section').style.display = 'none';
+        const list = document.getElementById('connect-org-list');
+        list.innerHTML = privs.map((p, i) => `
+          <div class="org-option" onclick="_doSelectOrg(null,null,null,${i})">
+            <div class="org-option-name">${p.name || 'Organization'}</div>
+            <div class="org-option-id">${p.org_id}</div>
+            <div class="org-option-role">${p.role || 'member'}</div>
+          </div>`).join('');
+        document.getElementById('connect-org-picker').style.display = '';
+      }
     } else {
       err.textContent = d.error || 'Invalid token — check and try again.';
-      btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
+      btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Connect →';
     }
   } catch(e) {
     err.textContent = 'Connection error: ' + e.message;
-    btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
+    btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Connect →';
   }
+}
+
+function _doSelectOrg(token, selfData, priv, idx) {
+  if (idx !== undefined) {
+    token    = _connectPending.token;
+    selfData = _connectPending.selfData;
+    priv     = _connectPending.privs[idx];
+  }
+  ORG_ID = priv.org_id;
+  SESSION.token = token;
+  SESSION.self  = { ...selfData, org_id: priv.org_id };
+  sessionStorage.setItem('tat_token', token);
+  sessionStorage.setItem('tat_orgid', priv.org_id);
+  sessionStorage.setItem('tat_self', JSON.stringify(SESSION.self));
+  // Reset modal state
+  document.getElementById('connect-token-section').style.display = '';
+  document.getElementById('connect-org-picker').style.display = 'none';
+  document.getElementById('connect-token').value = '';
+  document.getElementById('connect-btn').disabled = true;
+  document.getElementById('connect-btn').className = '';
+  document.getElementById('connect-btn').textContent = 'Connect →';
+  closeConnectModal();
+  startApp();
+}
+
+function copyDemoCmd() {
+  const orgPart = ORG_ID || 'YOUR_ORG_ID';
+  const cmd = `curl -X POST https://tatooine.thewifijedi.com/api/v1/orgs/${orgPart}/self-driving/pipeline -H "X-Mist-Token: $MIST_TOKEN" -H "Content-Type: application/json" -d '{"dry_run": true}'`;
+  navigator.clipboard.writeText(cmd).catch(() => {});
 }
 
 function logout() {
@@ -1110,12 +1194,15 @@ function logout() {
   SESSION.token = null; SESSION.self = null; ORG_ID = '';
   document.getElementById('app-shell').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('login-token').value = '';
-  document.getElementById('login-email').value = '';
-  document.getElementById('login-orgid-input').value = '';
-  document.getElementById('email-hint').textContent = '';
-  document.getElementById('orgid-hint').textContent = '';
-  updateLoginBtn();
+  // Reset connect modal
+  document.getElementById('connect-token').value = '';
+  document.getElementById('connect-btn').disabled = true;
+  document.getElementById('connect-btn').className = '';
+  document.getElementById('connect-btn').textContent = 'Connect →';
+  document.getElementById('connect-error').textContent = '';
+  document.getElementById('connect-org-picker').style.display = 'none';
+  document.getElementById('connect-token-section').style.display = '';
+  _connectPending = { token: null, selfData: null, privs: [] };
 }
 
 // ── API proxy ──────────────────────────────────────────────────────────────────
