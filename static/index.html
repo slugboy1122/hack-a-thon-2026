@@ -800,9 +800,13 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         </div>
         <div class="kpi-row">
           <div class="kpi-card ok"><div class="kpi-label">Sites</div><div class="kpi-value ok" id="kpi-sites">—</div><div class="kpi-sub" id="kpi-sites-sub">In org</div></div>
-          <div class="kpi-card info"><div class="kpi-label">Access Points</div><div class="kpi-value info" id="kpi-aps">—</div><div class="kpi-sub">Across all sites</div></div>
-          <div class="kpi-card ok"><div class="kpi-label">APs Online</div><div class="kpi-value ok" id="kpi-online">—</div><div class="kpi-sub">Status: connected</div></div>
-          <div class="kpi-card danger"><div class="kpi-label">APs Offline</div><div class="kpi-value danger" id="kpi-offline">—</div><div class="kpi-sub">Status: disconnected</div></div>
+          <div class="kpi-card info"><div class="kpi-label">Access Points</div><div class="kpi-value info" id="kpi-aps">—</div><div class="kpi-sub" id="kpi-ap-sub2">Across all sites</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">APs Online</div><div class="kpi-value ok" id="kpi-online">—</div><div class="kpi-sub">Connected</div></div>
+          <div class="kpi-card danger"><div class="kpi-label">APs Offline</div><div class="kpi-value danger" id="kpi-offline">—</div><div class="kpi-sub">Disconnected</div></div>
+          <div class="kpi-card info"><div class="kpi-label">Switches</div><div class="kpi-value info" id="kpi-switches">—</div><div class="kpi-sub" id="kpi-sw-sub2">Across all sites</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">Sw Online</div><div class="kpi-value ok" id="kpi-sw-online">—</div><div class="kpi-sub">Connected</div></div>
+          <div class="kpi-card info"><div class="kpi-label">Gateways</div><div class="kpi-value info" id="kpi-gateways">—</div><div class="kpi-sub" id="kpi-gw-sub2">Across all sites</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">GW Online</div><div class="kpi-value ok" id="kpi-gw-online">—</div><div class="kpi-sub">Connected</div></div>
         </div>
         <div class="grid-2">
           <div class="card">
@@ -819,6 +823,22 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           <div class="card-body" style="padding:0">
             <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>Clients</th><th>Status</th></tr></thead>
             <tbody id="dash-ap-body"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Fetching device data...</td></tr></tbody></table>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-bottom:20px">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Switches</span><button class="btn" style="font-size:11px;padding:4px 10px" onclick="loadSwitches()">Refresh</button></div>
+            <div class="card-body" style="padding:0">
+              <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>PoE</th><th>Status</th></tr></thead>
+              <tbody id="dash-sw-body"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Loading switches...</td></tr></tbody></table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">WAN / Gateways</span><button class="btn" style="font-size:11px;padding:4px 10px" onclick="loadWan()">Refresh</button></div>
+            <div class="card-body" style="padding:0">
+              <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>WAN</th><th>Status</th></tr></thead>
+              <tbody id="dash-gw-body"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Loading gateways...</td></tr></tbody></table>
+            </div>
           </div>
         </div>
         <div class="grid-2">
@@ -1650,15 +1670,19 @@ async function loadSwitches() {
     document.getElementById('sw-kpi-row').style.display = 'grid';
     document.getElementById('sw-sub').textContent =
       `${sw.length} switch${sw.length !== 1 ? 'es' : ''} · ${on} connected`;
+    // Dashboard KPIs
+    document.getElementById('kpi-switches').textContent = sw.length;
+    document.getElementById('kpi-sw-online').textContent = on;
+    document.getElementById('kpi-sw-sub2').textContent = `${off} offline`;
     const tbody = document.getElementById('sw-body');
     if (!sw.length) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// No switches found</td></tr>';
       return;
     }
-    tbody.innerHTML = sw.map(s => {
+    const swRow = s => {
       const poe = s.poe_stat ? `${(s.poe_stat.current_draw||0).toFixed(1)}W / ${(s.poe_stat.max_power||0).toFixed(1)}W` : '—';
       const click = s.id && (s._site_id || s.site_id) ? `onclick="openDeviceDetail('${s._site_id || s.site_id}','${s.id}','switch')"` : '';
-      return `<tr class="clickable" ${click}>
+      return { full: `<tr class="clickable" ${click}>
         <td><span class="ap-name">${s.hostname || s.name || '—'}</span></td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${s.model || '—'}</td>
         <td style="font-size:11px;color:var(--muted)">${s._site_name || (s.site_id ? s.site_id.slice(0,8)+'…' : '—')}</td>
@@ -1666,8 +1690,20 @@ async function loadSwitches() {
         <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${s.version || '—'}</td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${fmtUptime(s.uptime)}</td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${poe}</td>
-        <td>${statusTag(s.status)}</td></tr>`;
-    }).join('');
+        <td>${statusTag(s.status)}</td></tr>`,
+        dash: `<tr class="clickable" ${click}>
+        <td><span class="ap-name">${s.hostname || s.name || '—'}</span></td>
+        <td style="font-size:11px;color:var(--muted)">${s._site_name || '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${s.model || '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px">${s.ip || s.ext_ip || '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${poe}</td>
+        <td>${statusTag(s.status)}</td></tr>` };
+    };
+    tbody.innerHTML = sw.map(s => swRow(s).full).join('');
+    const dashSw = document.getElementById('dash-sw-body');
+    if (dashSw) dashSw.innerHTML = sw.length
+      ? sw.map(s => swRow(s).dash).join('')
+      : '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">// No switches found</td></tr>';
   } catch(e) {
     document.getElementById('sw-body').innerHTML =
       `<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--danger);font-family:var(--mono);font-size:11px">// Error: ${e.message}</td></tr>`;
@@ -1698,18 +1734,32 @@ async function loadWan() {
     document.getElementById('wan-kpi-row').style.display = 'grid';
     document.getElementById('wan-sub').textContent =
       `${gw.length} gateway${gw.length !== 1 ? 's' : ''} · ${on} connected`;
+    // Dashboard KPIs
+    document.getElementById('kpi-gateways').textContent = gw.length;
+    document.getElementById('kpi-gw-online').textContent = on;
+    document.getElementById('kpi-gw-sub2').textContent = `${off} offline`;
     const tbody = document.getElementById('wan-body');
     if (!gw.length) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px">// No gateways found</td></tr>';
+      const dashGw = document.getElementById('dash-gw-body');
+      if (dashGw) dashGw.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">// No gateways found</td></tr>';
       return;
     }
-    tbody.innerHTML = gw.map(g => {
+    const gwRow = g => {
       const wanIps = g.wan_interface_stat
         ? Object.entries(g.wan_interface_stat).filter(([,v]) => v?.ip)
-            .map(([k,v]) => `<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${k}: ${v.ip}</span>`).join('<br>')
+            .map(([k,v]) => {
+              const upCol = v.up === false ? 'var(--danger)' : 'var(--ok)';
+              return `<span style="font-family:var(--mono);font-size:11px;color:${upCol}">${k}: ${v.ip}</span>`;
+            }).join('<br>')
         : (g.ip || g.ext_ip || '—');
+      const wanCompact = g.wan_interface_stat
+        ? Object.entries(g.wan_interface_stat).filter(([,v]) => v?.ip).slice(0,2)
+            .map(([k,v]) => `<span style="font-family:var(--mono);font-size:11px;color:${v.up===false?'var(--danger)':'var(--ok)'}">${k}</span>`).join(' ')
+        : '—';
       const click = g.id && (g._site_id || g.site_id) ? `onclick="openDeviceDetail('${g._site_id || g.site_id}','${g.id}','gateway')"` : '';
-      return `<tr class="clickable" ${click}>
+      return {
+        full: `<tr class="clickable" ${click}>
         <td><span class="ap-name">${g.hostname || g.name || '—'}</span></td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${g.model || '—'}</td>
         <td style="font-size:11px;color:var(--muted)">${g._site_name || (g.site_id ? g.site_id.slice(0,8)+'…' : '—')}</td>
@@ -1717,8 +1767,19 @@ async function loadWan() {
         <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${g.version || '—'}</td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${fmtUptime(g.uptime)}</td>
         <td style="font-size:11px">${wanIps}</td>
-        <td>${statusTag(g.status)}</td></tr>`;
-    }).join('');
+        <td>${statusTag(g.status)}</td></tr>`,
+        dash: `<tr class="clickable" ${click}>
+        <td><span class="ap-name">${g.hostname || g.name || '—'}</span></td>
+        <td style="font-size:11px;color:var(--muted)">${g._site_name || '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${g.model || '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px">${g.ip || g.ext_ip || '—'}</td>
+        <td>${wanCompact}</td>
+        <td>${statusTag(g.status)}</td></tr>`
+      };
+    };
+    tbody.innerHTML = gw.map(g => gwRow(g).full).join('');
+    const dashGw = document.getElementById('dash-gw-body');
+    if (dashGw) dashGw.innerHTML = gw.map(g => gwRow(g).dash).join('');
   } catch(e) {
     document.getElementById('wan-body').innerHTML =
       `<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--danger);font-family:var(--mono);font-size:11px">// Error: ${e.message}</td></tr>`;
