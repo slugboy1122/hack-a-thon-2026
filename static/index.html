@@ -11,7 +11,7 @@
 :root {
   --bg:#070504; --bg2:#0d0a06; --bg3:#141009; --panel:#100d07;
   --border:rgba(200,150,55,0.18); --border2:rgba(200,150,55,0.35);
-  --text:#d4a85c; --muted:#7a5828; --muted2:#8a6030;
+  --text:#d8cfc0; --muted:#6e6258; --muted2:#8a7d6f;
   --accent:#e8a040; --accent2:#5ab8d8;
   --ok:#44c49a; --warn:#e8973a; --danger:#c94f35;
   --mono:'Space Mono',monospace; --sans:'Barlow Condensed',sans-serif; --display:'Cinzel',serif;
@@ -536,6 +536,13 @@ header::after{
         </div>
       </div>
       <div class="sidebar-section">
+        <div class="sidebar-label">Self-Driving</div>
+        <div class="nav-item" onclick="showTab('selfdriving');setActive(this)">
+          <span class="nav-icon">⟳</span><span class="nav-label">Pipeline</span>
+          <span class="nav-badge danger" id="badge-sd-issues" style="display:none">0</span>
+        </div>
+      </div>
+      <div class="sidebar-section">
         <div class="sidebar-label">Intelligence</div>
         <div class="nav-item" onclick="showTab('ai');setActive(this)">
           <span class="nav-icon">✦</span><span class="nav-label">AI Assistant</span>
@@ -722,6 +729,64 @@ header::after{
           <div class="card" style="cursor:pointer" onclick="quickAsk('List all my sites and their details')"><div class="card-body" style="padding:12px 14px"><div style="font-size:13px;font-weight:600;margin-bottom:3px;font-family:var(--display);letter-spacing:0.06em;font-size:11px">Sites Overview</div><div style="font-size:11px;color:var(--muted2);font-family:var(--mono)">"List all my sites"</div></div></div>
           <div class="card" style="cursor:pointer" onclick="quickAsk('Which access points are offline or disconnected?')"><div class="card-body" style="padding:12px 14px"><div style="font-size:13px;font-weight:600;margin-bottom:3px;font-family:var(--display);letter-spacing:0.06em;font-size:11px">Offline Devices</div><div style="font-size:11px;color:var(--muted2);font-family:var(--mono)">"Which APs are offline?"</div></div></div>
           <div class="card" style="cursor:pointer" onclick="quickAsk('Show me all WLANs configured in my org')"><div class="card-body" style="padding:12px 14px"><div style="font-size:13px;font-weight:600;margin-bottom:3px;font-family:var(--display);letter-spacing:0.06em;font-size:11px">WLAN Inventory</div><div style="font-size:11px;color:var(--muted2);font-family:var(--mono)">"Show all WLANs"</div></div></div>
+        </div>
+      </div>
+
+      <!-- SELF-DRIVING PIPELINE -->
+      <div id="tab-selfdriving" class="tab-content">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Self-Driving Pipeline</div>
+            <div class="section-sub">L1 Detection → L2 Diagnosis → L3 Remediation · Last run: <span id="sd-last-run">Never</span></div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <label style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--muted2);cursor:pointer">
+              <input type="checkbox" id="sd-dryrun" checked style="accent-color:var(--accent)"> Dry-run
+            </label>
+            <button class="btn btn-primary" id="sd-run-btn" onclick="runSelfDrivingPipeline()">▶ Run Pipeline</button>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi-card info"><div class="kpi-label">Issues Detected</div><div class="kpi-value info" id="sd-kpi-issues">—</div><div class="kpi-sub">L1 scan</div></div>
+          <div class="kpi-card danger"><div class="kpi-label">Critical</div><div class="kpi-value danger" id="sd-kpi-critical">—</div><div class="kpi-sub">High severity</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">Actions Taken</div><div class="kpi-value ok" id="sd-kpi-actions">—</div><div class="kpi-sub" id="sd-kpi-actions-sub">L3 remediation</div></div>
+          <div class="kpi-card ok"><div class="kpi-label">Duration</div><div class="kpi-value ok" id="sd-kpi-duration">—</div><div class="kpi-sub">Full pipeline</div></div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:16px">
+          <div class="card">
+            <div class="card-header">
+              <div><span class="card-title">L1 — Intelligent Detection</span><span style="font-family:var(--mono);font-size:9px;color:var(--accent2);margin-left:8px">MIST TELEMETRY</span></div>
+              <span id="sd-l1-stamp" style="font-family:var(--mono);font-size:9px;color:var(--muted2)">—</span>
+            </div>
+            <div class="card-body" style="padding:8px 16px">
+              <div id="sd-l1-body" style="font-family:var(--mono);font-size:11px;color:var(--muted2)">// Run pipeline to detect issues</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div><span class="card-title">L2 — Automated Diagnosis</span><span style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-left:8px">CLAUDE AI</span></div>
+              <span id="sd-l2-stamp" style="font-family:var(--mono);font-size:9px;color:var(--muted2)">—</span>
+            </div>
+            <div class="card-body" style="padding:8px 16px">
+              <div id="sd-l2-summary" style="font-family:var(--mono);font-size:11px;color:var(--muted2);margin-bottom:10px">// Waiting for L1 scan...</div>
+              <div id="sd-l2-body"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div><span class="card-title">L3 — Autonomous Remediation</span><span style="font-family:var(--mono);font-size:9px;color:var(--ok);margin-left:8px">ACTIONS</span></div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="sd-dryrun-badge" style="font-family:var(--mono);font-size:9px;color:var(--warn)">DRY-RUN MODE</span>
+              <span id="sd-l3-stamp" style="font-family:var(--mono);font-size:9px;color:var(--muted2)">—</span>
+            </div>
+          </div>
+          <div class="card-body" style="padding:8px 16px">
+            <div id="sd-l3-body" style="font-family:var(--mono);font-size:11px;color:var(--muted2)">// Run pipeline to see remediation actions</div>
+          </div>
         </div>
       </div>
 
@@ -1087,6 +1152,7 @@ async function loadAll() {
   await loadAPs();
   loadMarvisActions();
   loadMarvisMinis();
+  runSelfDrivingScan();
 }
 
 async function refreshAll() {
@@ -2236,6 +2302,170 @@ document.addEventListener('keydown', e => {
 
 // ── Auto-login if session exists ───────────────────────────────────────────────
 if (SESSION.token) startApp();
+
+// ══ SELF-DRIVING PIPELINE ══════════════════════════════════════════════════════
+
+async function runSelfDrivingScan() {
+  // Background L1-only scan — seeds dashboard event feed without blocking UI
+  try {
+    const r = await fetch('/api/v1/orgs/' + ORG_ID + '/self-driving/scan', {
+      headers: { 'X-Mist-Token': SESSION.token || '' },
+    });
+    const d = await r.json();
+    if (d.issues_found > 0) {
+      const badge = document.getElementById('badge-sd-issues');
+      badge.textContent = d.issues_found;
+      badge.style.display = '';
+      injectPipelineEvents(d.issues, null, null);
+    }
+  } catch(_) {}
+}
+
+async function runSelfDrivingPipeline() {
+  const btn     = document.getElementById('sd-run-btn');
+  const dryRun  = document.getElementById('sd-dryrun').checked;
+  btn.disabled  = true;
+  btn.textContent = '⟳ Running...';
+  document.getElementById('sd-last-run').textContent = 'Running...';
+  renderSdLoading();
+
+  try {
+    const r = await fetch('/api/v1/orgs/' + ORG_ID + '/self-driving/pipeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '' },
+      body: JSON.stringify({ dry_run: dryRun }),
+    });
+    renderSdResult(await r.json());
+  } catch(e) {
+    document.getElementById('sd-l1-body').innerHTML =
+      '<span style="color:var(--danger)">// Error: ' + e.message + '</span>';
+    document.getElementById('sd-last-run').textContent = 'Error';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ Run Pipeline';
+}
+
+function renderSdLoading() {
+  const t = '<span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted2)"> Running...</span>';
+  ['sd-l1-body', 'sd-l3-body'].forEach(id => document.getElementById(id).innerHTML = t);
+  document.getElementById('sd-l2-summary').innerHTML = t;
+  document.getElementById('sd-l2-body').innerHTML = '';
+}
+
+function renderSdResult(d) {
+  const l1 = d.l1_detection;
+  const l2 = d.l2_diagnosis;
+  const l3 = d.l3_remediation;
+  const ts = new Date().toLocaleTimeString();
+
+  // KPIs
+  document.getElementById('sd-kpi-issues').textContent   = l1.issues_found;
+  document.getElementById('sd-kpi-critical').textContent  = l2.critical_count || 0;
+  document.getElementById('sd-kpi-actions').textContent   = l3.actions_taken;
+  document.getElementById('sd-kpi-actions-sub').textContent = l3.dry_run ? 'dry-run mode' : 'live mode';
+  document.getElementById('sd-kpi-duration').textContent  = (d.total_duration_ms / 1000).toFixed(1) + 's';
+  document.getElementById('sd-last-run').textContent      = ts;
+  document.getElementById('sd-dryrun-badge').style.display = l3.dry_run ? '' : 'none';
+
+  // Sidebar badge
+  const badge = document.getElementById('badge-sd-issues');
+  if (l1.issues_found > 0) { badge.textContent = l1.issues_found; badge.style.display = ''; }
+  else badge.style.display = 'none';
+
+  // Stamps
+  document.getElementById('sd-l1-stamp').textContent = l1.telemetry_summary.sites + ' sites · ' + l1.telemetry_summary.alarms + ' alarms';
+  document.getElementById('sd-l2-stamp').textContent = l2.diagnoses.length + ' diagnosed';
+  document.getElementById('sd-l3-stamp').textContent = l3.actions_taken + ' acted · ' + l3.actions_skipped + ' skipped';
+
+  // L1 issues list
+  const SEV_COL = { critical:'var(--danger)', high:'var(--danger)', medium:'var(--warn)', low:'var(--ok)' };
+  document.getElementById('sd-l1-body').innerHTML = !l1.issues.length
+    ? '<div style="color:var(--ok);font-family:var(--mono);font-size:11px">✓ No issues detected — network healthy</div>'
+    : l1.issues.map(i => {
+        const col = SEV_COL[i.severity] || 'var(--muted)';
+        const cls = (i.severity === 'critical' || i.severity === 'high') ? 'danger' : 'warn';
+        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+          <div style="width:7px;height:7px;border-radius:50%;background:${col};margin-top:4px;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;color:var(--text)">${i.device_name || i.site_name || '—'}</div>
+            <div style="font-size:10px;color:var(--muted2);margin-top:2px;line-height:1.5">${i.detail}</div>
+          </div>
+          <span class="tag ${cls}" style="white-space:nowrap">${i.type.replace(/_/g,' ')}</span>
+        </div>`;
+      }).join('');
+
+  // L2 diagnoses
+  const RC_CLS = { RF_INTERFERENCE:'warn', AP_OFFLINE:'danger', AUTH_FAILURE:'danger',
+    DHCP_ISSUE:'warn', UPSTREAM_SWITCH:'danger', WAN_BROWNOUT:'danger',
+    FIRMWARE_BUG:'warn', CONFIG_ERROR:'warn', DEVICE_OFFLINE:'danger', UNKNOWN:'info' };
+  document.getElementById('sd-l2-summary').innerHTML =
+    '<span style="color:var(--accent2)">' + (l2.summary || '—') + '</span>';
+  document.getElementById('sd-l2-body').innerHTML = !l2.diagnoses.length ? '' :
+    l2.diagnoses.map(diag => {
+      const cls  = RC_CLS[diag.root_cause] || 'info';
+      const conf = diag.confidence || 0;
+      const confCol = conf >= 80 ? 'var(--ok)' : conf >= 60 ? 'var(--warn)' : 'var(--muted)';
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+          <span class="tag ${cls}">${diag.root_cause.replace(/_/g,' ')}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:${confCol}">${conf}% conf.</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted2);margin-bottom:4px">${diag.explanation || '—'}</div>
+        ${diag.auto_remediable
+          ? `<div style="font-size:10px;color:var(--ok);font-family:var(--mono)">→ ${diag.recommended_action}</div>`
+          : `<div style="font-size:10px;color:var(--muted);font-family:var(--mono)">⊘ Manual: ${diag.recommended_action || '—'}</div>`
+        }
+      </div>`;
+    }).join('');
+
+  // L3 actions
+  const ACT_ICONS = { REBOOT_SENT:'↺', DRY_RUN_REBOOT:'↺', REBOOT_QUEUED:'↺',
+    NOC_ALERT:'⚡', DRY_RUN_RRM_RESET:'◎', RRM_RESET_QUEUED:'◎',
+    ALERT_SENT:'⚡', SKIPPED:'⊘' };
+  document.getElementById('sd-l3-body').innerHTML = !l3.actions.length
+    ? '<div style="color:var(--muted2);font-family:var(--mono);font-size:11px">// No actions — all issues require manual remediation</div>'
+    : l3.actions.map(a => {
+        const icon = ACT_ICONS[a.action] || '◈';
+        const col  = a.action === 'SKIPPED' ? 'var(--muted)' : 'var(--ok)';
+        const textCol = a.action === 'SKIPPED' ? 'var(--muted)' : 'var(--text)';
+        return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="width:28px;height:28px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;color:${col};flex-shrink:0">${icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;font-weight:500;color:${textCol}">${a.action.replace(/_/g,' ')}</div>
+            <div style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:2px">${a.message || a.recommendation || a.root_cause || '—'}</div>
+          </div>
+          ${a.dry_run !== undefined
+            ? `<span style="font-family:var(--mono);font-size:9px;color:${a.dry_run ? 'var(--warn)' : 'var(--ok)'}">${a.dry_run ? 'DRY-RUN' : 'LIVE'}</span>`
+            : ''}
+        </div>`;
+      }).join('');
+
+  injectPipelineEvents(l1.issues, l2.diagnoses, l3.actions);
+}
+
+function injectPipelineEvents(issues, diagnoses, actions) {
+  const feed = document.getElementById('event-feed');
+  if (!feed) return;
+  const ts = new Date().toLocaleTimeString();
+  const rows = [];
+
+  (actions || []).filter(a => a.action !== 'SKIPPED').forEach(a => {
+    rows.push({ level:'L3', msg:`<strong>${a.action.replace(/_/g,' ')}</strong> <span>${a.message || a.root_cause || '—'}</span>`, ts });
+  });
+  (diagnoses || []).forEach(d => {
+    rows.push({ level:'L2', msg:`<strong>${d.root_cause.replace(/_/g,' ')}</strong> <span>${d.explanation || '—'}</span>`, ts });
+  });
+  (issues || []).slice(0, 3).forEach(i => {
+    rows.push({ level:'L1', msg:`<strong>Detected:</strong> <span>${i.detail}</span>`, ts });
+  });
+
+  if (!rows.length) return;
+  const LVL_CLS = { L1:'info', L2:'warn', L3:'ok' };
+  feed.innerHTML = rows.map(r =>
+    `<div class="event-item"><span class="event-level ${LVL_CLS[r.level]||'info'}">${r.level}</span><div class="event-msg">${r.msg}</div><span class="event-time">${r.ts}</span></div>`
+  ).join('') + feed.innerHTML;
+}
 </script>
 </body>
 </html>

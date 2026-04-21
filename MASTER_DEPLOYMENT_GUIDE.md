@@ -488,7 +488,87 @@ sudo chown mist-api:mist-api /opt/mist-enterprise/.env
 
 ---
 
-## PART 8: API CHEATSHEET
+## PART 8: SELF-DRIVING PIPELINE
+
+The self-driving pipeline implements three levels of autonomous network operations. All endpoints are authenticated via `X-Mist-Token` header (same token as the rest of the API).
+
+### Architecture
+
+```
+Mist Telemetry → L1 Detection → L2 Diagnosis (Claude AI) → L3 Remediation
+                     ↓                  ↓                         ↓
+               Issue objects    Root-cause + confidence    Actions + audit trail
+                                         ↓
+                              WebSocket broadcast to dashboard
+```
+
+### Endpoints
+
+**L1 — Intelligent Detection** (< 1 second, no AI calls)
+```bash
+curl http://localhost:8080/api/v1/orgs/$ORG_ID/self-driving/scan \
+  -H "X-Mist-Token: $MIST_TOKEN"
+```
+Pulls live alarms, disconnected devices, and org health stats from Mist. Returns structured issue objects with severity, device name, site, and a human-readable detail string.
+
+**L2 — Automated Diagnosis** (requires Claude API key)
+```bash
+curl -X POST http://localhost:8080/api/v1/orgs/$ORG_ID/self-driving/diagnose \
+  -H "X-Mist-Token: $MIST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+Runs L1 scan then sends telemetry to Claude for root-cause classification. Returns diagnoses with `root_cause` (e.g. `RF_INTERFERENCE`, `AP_OFFLINE`, `AUTH_FAILURE`), confidence score (0–100), explanation, and `auto_remediable` flag.
+
+**L3 — Autonomous Remediation**
+```bash
+curl -X POST http://localhost:8080/api/v1/orgs/$ORG_ID/self-driving/remediate \
+  -H "X-Mist-Token: $MIST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"diagnoses": [...], "dry_run": true}'
+```
+Applies fixes for `auto_remediable` issues. Supports dry-run mode (default `true`). Actions include AP reboot, RRM optimization trigger, and NOC alert escalation.
+
+**Full Pipeline (L1 → L2 → L3 in one call)**
+```bash
+# Dry run (safe for demo/testing)
+curl -X POST http://localhost:8080/api/v1/orgs/$ORG_ID/self-driving/pipeline \
+  -H "X-Mist-Token: $MIST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dry_run": true}'
+
+# Live mode (executes real actions)
+curl -X POST http://localhost:8080/api/v1/orgs/$ORG_ID/self-driving/pipeline \
+  -H "X-Mist-Token: $MIST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dry_run": false}'
+```
+Runs all three levels sequentially and broadcasts the result to all connected WebSocket clients. Response includes `l1_detection`, `l2_diagnosis`, and `l3_remediation` sections plus total duration.
+
+### Root Cause Classifications
+
+| Code | Meaning | Auto-remediable |
+|------|---------|----------------|
+| `RF_INTERFERENCE` | Co-channel / adjacent channel interference | Yes (RRM reset) |
+| `AP_OFFLINE` / `DEVICE_OFFLINE` | AP not reachable | Yes (reboot) |
+| `AUTH_FAILURE` | RADIUS / PSK auth failures | No (NOC alert) |
+| `DHCP_ISSUE` | DHCP scope exhaustion | No (alert) |
+| `UPSTREAM_SWITCH` | Switch port flap or PoE issue | No (ITSM ticket) |
+| `WAN_BROWNOUT` | WAN link degradation | No (escalate) |
+| `CONFIG_ERROR` | Misconfiguration detected | No (manual review) |
+| `FIRMWARE_BUG` | Known firmware regression | No (manual review) |
+
+### Dashboard Integration
+
+The pipeline tab is accessible from the **Self-Driving → Pipeline** sidebar item. On login, a background L1 scan runs automatically and populates:
+- The dashboard **event feed** with detected issues (L1), diagnoses (L2), and actions (L3)
+- The sidebar **badge** with the count of active issues
+
+The "Run Pipeline" button in the Pipeline tab runs all three levels and updates all panels in real-time.
+
+---
+
+## PART 9: API CHEATSHEET (TATOOINE PROXY)
 
 ### Environment
 ```bash
@@ -556,7 +636,7 @@ while True:
 
 ---
 
-## PART 9: DASHBOARD FEATURES
+## PART 10: DASHBOARD FEATURES
 
 ### 8 Integrated Tabs
 

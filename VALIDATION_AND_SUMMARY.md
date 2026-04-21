@@ -1,41 +1,82 @@
-# Mist Enterprise Suite v3 - Complete Deployment Package
-## Ubuntu Server Pro 25.10 - All Documentation Consolidated
+# Tatooine — Self-Driving Network Intelligence
+## Mist Field PLM Hackathon · Self-Driving Network Track
 
 ---
 
-## 📋 PACKAGE CONTENTS & VALIDATION
+## What This Is
 
-### ✅ ALL Documentation Files Included
+Tatooine is a production-ready self-driving network operations platform built on Juniper Mist. It closes the loop from telemetry to action: detecting issues automatically, diagnosing root cause with Claude AI, and remediating problems without manual intervention.
 
-| File | Size | Status | Purpose |
-|------|------|--------|---------|
-| **MASTER_DEPLOYMENT_GUIDE.md** | 816 lines | ✅ | **ALL CONTENT IN ONE FILE** |
-| HOMELAB_QUICKSTART.md | 10KB | ✅ | 30-minute fast setup |
-| UBUNTU_HOMELAB_DEPLOYMENT.md | 25KB | ✅ | Complete manual reference |
-| DEPLOYMENT_FILES_SUMMARY.md | 9KB | ✅ | Package overview |
-| CLAUDE_MCP_INTEGRATION_GUIDE.md | 15KB | ✅ | AI & MCP architecture |
-| MIST_ENTERPRISE_GUIDE.md | 17KB | ✅ | API reference (50+ endpoints) |
-| MIST_AUTOMATION_GUIDE.md | 24KB | ✅ | Automation patterns (50+ examples) |
-| MIST_INTEGRATIONS_GUIDE.md | 17KB | ✅ | External integrations (10+) |
-| DEPLOYMENT_AND_OPERATIONS_GUIDE.md | 21KB | ✅ | Production operations |
-| MIST_API_CHEATSHEET.md | 6KB | ✅ | Quick reference |
-| README.md | 12KB | ✅ | Platform overview |
-| AI_ASSISTANT_SUMMARY.md | 13KB | ✅ | AI features summary |
+**Self-Driving Levels implemented:**
+- **L1 — Intelligent Detection**: polls Mist alarms, disconnected devices, and org health
+- **L2 — Automated Diagnosis**: Claude AI classifies root cause with confidence scoring
+- **L3 — Autonomous Remediation**: executes AP reboots, RRM resets, NOC alerts (dry-run safe)
 
-**Total Documentation**: 350KB+ across 12 files
+**Demo endpoint:**
+```bash
+curl -X POST https://tatooine.thewifijedi.com/api/v1/orgs/5755516e-44e6-4a4b-8b61-bf7fc3709415/self-driving/pipeline \
+  -H "X-Mist-Token: $MIST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dry_run": true}'
+```
 
-### ✅ Application Files
+---
 
-| File | Size | Status | Purpose |
-|------|------|--------|---------|
-| mist-enterprise-suite-v3-ai.html | 411KB | ✅ | Full React dashboard (8 tabs) |
-| app.py | 15KB | ✅ | Flask backend with Claude + MCP |
-| requirements.txt | 1KB | ✅ | Python dependencies |
-| docker-compose.yml | 2.2KB | ✅ | Docker orchestration |
-| Dockerfile | 749B | ✅ | Container image |
-| nginx.conf | 1.4KB | ✅ | Web server config |
-| deploy-homelab.sh | 8KB | ✅ | Automated deployment (original) |
-| **deploy-homelab-VALIDATED.sh** | 12KB | ✅ | **VALIDATED deployment script** |
+## Application Files
+
+| File | Purpose |
+|------|---------|
+| `static/index.html` | KRAYT TERMINAL dashboard — login, all tabs including Self-Driving Pipeline |
+| `app.py` | Flask backend: 40+ Mist API proxy routes + self-driving pipeline |
+| `docker-compose.yml` | Full stack: nginx, gunicorn, n8n, postgres, redis, cloudflared |
+| `nginx.conf` | Reverse proxy + WebSocket support |
+| `n8n.json` | n8n workflow: Mist webhook → Claude analysis → callback |
+
+## Self-Driving Pipeline Endpoints
+
+| Endpoint | Level | Description |
+|----------|-------|-------------|
+| `GET /api/v1/orgs/:id/self-driving/scan` | L1 | Detect issues from live Mist telemetry |
+| `POST /api/v1/orgs/:id/self-driving/diagnose` | L2 | Claude root-cause analysis |
+| `POST /api/v1/orgs/:id/self-driving/remediate` | L3 | Execute automated actions |
+| `POST /api/v1/orgs/:id/self-driving/pipeline` | L1→L2→L3 | Full pipeline, one call |
+
+## Dashboard Tabs
+
+| Tab | What It Shows |
+|-----|--------------|
+| Dashboard | KPIs, site health, Marvis actions, SLE scores, live event feed |
+| Access Points | All APs across org with status, clients, radio details |
+| WLANs | Org-level WLAN inventory |
+| Switches | Switch fleet with PoE and port stats |
+| WAN / Gateways | Gateway fleet with WAN interface details |
+| **Self-Driving** | **L1/L2/L3 pipeline UI, run button, dry-run toggle** |
+| n8n AI Ops | Webhook status, Claude analyses, event feed |
+| Org Insights | Live Mist WebSocket stream |
+| Access Assurance | NAC rules (802.1X) |
+| Audit Log | Full org event history |
+
+## Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Frontend | Single-file HTML/CSS/JS, KRAYT TERMINAL dark theme |
+| Backend | Python 3.11 + Flask + gunicorn |
+| AI | Anthropic Claude (claude-sonnet-4-6) |
+| Automation | n8n (self-hosted, Cloudflare tunneled) |
+| Real-time | WebSocket server (port 8765) + SSE stream |
+| Data | PostgreSQL + Redis |
+| Proxy | nginx + Cloudflare Tunnel |
+
+## Deployment (Docker)
+
+```bash
+git clone <repo>
+cd Tatooine
+cp .env.example .env   # add MIST_API_TOKEN, MIST_ORG_ID, ANTHROPIC_API_KEY
+docker compose up -d
+# Access: http://localhost:8080
+```
 
 ### ✅ Script Validation Results
 

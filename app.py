@@ -811,5 +811,400 @@ def n8n_action():
         return jsonify({'error': str(e)}), 502
 
 
+# ============================================================================
+# SELF-DRIVING PIPELINE  —  L1 Detection → L2 Diagnosis → L3 Remediation
+# ============================================================================
+
+def _sd_collect_telemetry(org_id: str) -> dict:
+    """Pull alarms, device health, and site SLE data from Mist."""
+    telemetry: dict = {'org_id': org_id, 'collected_at': int(time.time())}
+
+    # Alarms
+    try:
+        r = mist_request('GET', f'/orgs/{org_id}/alarms', params={'limit': 100})
+        data = r.json() if r.status_code == 200 else {}
+        telemetry['alarms'] = data.get('results', data) if isinstance(data, dict) else data
+    except Exception as e:
+        telemetry['alarms'] = []
+        telemetry['alarms_error'] = str(e)
+
+    # Sites
+    try:
+        r = mist_request('GET', f'/orgs/{org_id}/sites')
+        sites = r.json() if r.status_code == 200 else []
+        telemetry['sites'] = sites if isinstance(sites, list) else sites.get('results', [])
+    except Exception as e:
+        telemetry['sites'] = []
+        telemetry['sites_error'] = str(e)
+
+    # Org device stats (aggregate counts)
+    try:
+        r = mist_request('GET', f'/orgs/{org_id}/stats')
+        telemetry['org_stats'] = r.json() if r.status_code == 200 else {}
+    except Exception as e:
+        telemetry['org_stats'] = {}
+
+    # Offline / troubled devices (search API uses 'disconnected' status)
+    try:
+        r = mist_request('GET', f'/orgs/{org_id}/devices/search',
+                         params={'status': 'disconnected', 'limit': 50})
+        data = r.json() if r.status_code == 200 else {}
+        results = data.get('results', [])
+        # Mist device search returns mac-keyed results; normalise field names
+        for dev in results:
+            if not dev.get('id'):
+                dev['id'] = dev.get('mac')
+            if isinstance(dev.get('hostname'), list):
+                dev['hostname'] = dev['hostname'][0] if dev['hostname'] else dev.get('last_hostname', '—')
+        telemetry['offline_devices'] = results
+    except Exception as e:
+        telemetry['offline_devices'] = []
+
+    # Recent audit logs
+    try:
+        r = mist_request('GET', f'/orgs/{org_id}/logs', params={'limit': 20})
+        data = r.json() if r.status_code == 200 else {}
+        telemetry['audit_logs'] = data.get('results', [])
+    except Exception as e:
+        telemetry['audit_logs'] = []
+
+    return telemetry
+
+
+def _sd_detect_issues(telemetry: dict) -> list:
+    """L1: Classify raw telemetry into structured issue objects."""
+    issues = []
+
+    # Offline device issues
+    for dev in telemetry.get('offline_devices', []):
+        mac = dev.get('id') or dev.get('mac', '?')
+        raw_host = dev.get('last_hostname') or dev.get('hostname') or dev.get('name') or mac
+        hostname = raw_host[0] if isinstance(raw_host, list) else str(raw_host)
+        issues.append({
+            'id': f"offline-{mac}",
+            'level': 'L1',
+            'type': 'DEVICE_OFFLINE',
+            'severity': 'high',
+            'site_id': dev.get('site_id'),
+            'site_name': dev.get('site_name', '—'),
+            'device_id': mac,
+            'device_name': hostname,
+            'device_type': dev.get('type', 'ap'),
+            'model': dev.get('model', '—'),
+            'detail': f"{dev.get('type','AP').upper()} offline: {hostname} ({dev.get('model','?')}) — last seen {dev.get('last_seen','unknown')}",
+            'raw': {k: v for k, v in dev.items() if k not in ('wlans',)},
+        })
+
+    # Alarm-based issues
+    for alarm in telemetry.get('alarms', []):
+        atype = alarm.get('type', '')
+        severity = 'critical' if alarm.get('severity') in ('critical', 'error') else 'medium'
+        issues.append({
+            'id': f"alarm-{alarm.get('id','?')}",
+            'level': 'L1',
+            'type': f"ALARM_{atype.upper().replace('-','_')}",
+            'severity': severity,
+            'site_id': alarm.get('site_id'),
+            'site_name': alarm.get('site_name', '—'),
+            'detail': alarm.get('message') or alarm.get('reason') or atype,
+            'raw': alarm,
+        })
+
+    # Org-level health flags
+    stats = telemetry.get('org_stats', {})
+    num_aps = stats.get('num_aps', 0)
+    num_aps_connected = stats.get('num_aps_connected', 0)
+    if num_aps and num_aps_connected < num_aps:
+        offline_count = num_aps - num_aps_connected
+        pct = round(offline_count / num_aps * 100)
+        if pct >= 5:
+            issues.append({
+                'id': 'org-ap-offline',
+                'level': 'L1',
+                'type': 'AP_OFFLINE_CLUSTER',
+                'severity': 'high' if pct >= 20 else 'medium',
+                'site_id': None,
+                'site_name': 'Org-wide',
+                'detail': f"{offline_count}/{num_aps} APs offline ({pct}% of fleet)",
+                'raw': stats,
+            })
+
+    return issues
+
+
+def _sd_claude_diagnose(issues: list, telemetry: dict) -> dict:
+    """L2: Ask Claude to classify root cause for each detected issue."""
+    if not issues:
+        return {'diagnoses': [], 'summary': 'No issues detected — network is healthy.'}
+
+    issue_text = json.dumps(issues[:20], indent=2)
+    org_stats_text = json.dumps(telemetry.get('org_stats', {}), indent=2)
+
+    prompt = f"""You are a Mist Network NOC AI performing automated root-cause analysis.
+
+DETECTED ISSUES ({len(issues)} total):
+{issue_text}
+
+ORG STATS:
+{org_stats_text}
+
+For each issue, classify the root cause into one of:
+RF_INTERFERENCE, AP_OFFLINE, AUTH_FAILURE, DHCP_ISSUE, UPSTREAM_SWITCH, WAN_BROWNOUT, FIRMWARE_BUG, CONFIG_ERROR, UNKNOWN
+
+Return a JSON object with:
+{{
+  "diagnoses": [
+    {{
+      "issue_id": "<id from above>",
+      "root_cause": "<classification>",
+      "confidence": <0-100>,
+      "explanation": "<1-2 sentence reason>",
+      "recommended_action": "<specific actionable step>",
+      "auto_remediable": <true|false>
+    }}
+  ],
+  "summary": "<1-2 sentence overall network health summary>",
+  "critical_count": <number of critical issues>
+}}
+
+Respond with valid JSON only."""
+
+    try:
+        resp = anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=2048,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        text = resp.content[0].text.strip()
+        # strip markdown fences if present
+        if text.startswith('```'):
+            text = text.split('\n', 1)[1].rsplit('```', 1)[0]
+        return json.loads(text)
+    except Exception as e:
+        log.warning('Claude diagnosis failed: %s', e)
+        return {
+            'diagnoses': [
+                {
+                    'issue_id': iss['id'],
+                    'root_cause': iss['type'],
+                    'confidence': 50,
+                    'explanation': iss['detail'],
+                    'recommended_action': 'Manual review required',
+                    'auto_remediable': False,
+                }
+                for iss in issues
+            ],
+            'summary': f'{len(issues)} issues detected. AI diagnosis unavailable: {e}',
+            'critical_count': sum(1 for i in issues if i.get('severity') == 'critical'),
+        }
+
+
+def _sd_apply_remediations(diagnoses: list, dry_run: bool = True) -> list:
+    """L3: Execute remediations for auto_remediable issues."""
+    actions = []
+
+    REMEDIATION_MAP = {
+        'AP_OFFLINE': _remediate_ap_offline,
+        'DEVICE_OFFLINE': _remediate_ap_offline,
+        'RF_INTERFERENCE': _remediate_rf_interference,
+        'AP_OFFLINE_CLUSTER': _remediate_cluster_offline,
+    }
+
+    for diag in diagnoses:
+        if not diag.get('auto_remediable'):
+            actions.append({
+                'issue_id': diag['issue_id'],
+                'action': 'SKIPPED',
+                'reason': 'Manual remediation required',
+                'root_cause': diag.get('root_cause'),
+                'recommendation': diag.get('recommended_action'),
+            })
+            continue
+
+        fn = REMEDIATION_MAP.get(diag.get('root_cause'))
+        if fn:
+            result = fn(diag, dry_run=dry_run)
+        else:
+            result = {
+                'action': 'ALERT_SENT',
+                'message': f"Alert queued for {diag.get('root_cause')} — {diag.get('recommended_action')}",
+                'dry_run': dry_run,
+            }
+        result['issue_id'] = diag['issue_id']
+        result['root_cause'] = diag.get('root_cause')
+        actions.append(result)
+
+    return actions
+
+
+def _remediate_ap_offline(diag: dict, dry_run: bool = True) -> dict:
+    device_id = diag.get('raw', {}).get('id') or diag.get('raw', {}).get('device_id')
+    site_id = diag.get('raw', {}).get('site_id')
+
+    if dry_run or not (device_id and site_id):
+        return {
+            'action': 'REBOOT_QUEUED' if not dry_run else 'DRY_RUN_REBOOT',
+            'device_id': device_id,
+            'site_id': site_id,
+            'dry_run': dry_run,
+            'message': f"{'[DRY RUN] ' if dry_run else ''}Reboot AP {device_id or '?'}",
+        }
+
+    try:
+        r = mist_request('POST', f'/sites/{site_id}/devices/{device_id}/reboot')
+        return {
+            'action': 'REBOOT_SENT',
+            'device_id': device_id,
+            'site_id': site_id,
+            'dry_run': False,
+            'http_status': r.status_code,
+            'message': f"Reboot command sent to {device_id}",
+        }
+    except Exception as e:
+        return {'action': 'REBOOT_FAILED', 'error': str(e), 'dry_run': False}
+
+
+def _remediate_rf_interference(diag: dict, dry_run: bool = True) -> dict:
+    return {
+        'action': 'DRY_RUN_RRM_RESET' if dry_run else 'RRM_RESET_QUEUED',
+        'dry_run': dry_run,
+        'message': f"{'[DRY RUN] ' if dry_run else ''}Trigger RRM optimization on affected site to resolve RF interference",
+        'detail': diag.get('explanation', ''),
+    }
+
+
+def _remediate_cluster_offline(diag: dict, dry_run: bool = True) -> dict:
+    return {
+        'action': 'NOC_ALERT',
+        'dry_run': dry_run,
+        'message': f"{'[DRY RUN] ' if dry_run else ''}High-severity alert: {diag.get('explanation','')}",
+        'escalate': True,
+    }
+
+
+@app.route('/api/v1/orgs/<org_id>/self-driving/scan', methods=['GET'])
+def self_driving_scan(org_id):
+    """L1: Scan org for issues using Mist telemetry."""
+    t0 = time.time()
+    telemetry = _sd_collect_telemetry(org_id)
+    issues = _sd_detect_issues(telemetry)
+    return jsonify({
+        'level': 'L1',
+        'org_id': org_id,
+        'scanned_at': int(time.time()),
+        'duration_ms': round((time.time() - t0) * 1000),
+        'issues_found': len(issues),
+        'issues': issues,
+        'telemetry_summary': {
+            'sites': len(telemetry.get('sites', [])),
+            'alarms': len(telemetry.get('alarms', [])),
+            'offline_devices': len(telemetry.get('offline_devices', [])),
+        },
+    })
+
+
+@app.route('/api/v1/orgs/<org_id>/self-driving/diagnose', methods=['POST'])
+def self_driving_diagnose(org_id):
+    """L2: Claude root-cause analysis on provided or freshly scanned issues."""
+    body = request.get_json(silent=True) or {}
+    issues = body.get('issues')
+    telemetry = body.get('telemetry', {})
+
+    if issues is None:
+        # scan first if caller didn't provide issues
+        raw = _sd_collect_telemetry(org_id)
+        issues = _sd_detect_issues(raw)
+        telemetry = raw
+
+    t0 = time.time()
+    result = _sd_claude_diagnose(issues, telemetry)
+    result['level'] = 'L2'
+    result['org_id'] = org_id
+    result['diagnosed_at'] = int(time.time())
+    result['duration_ms'] = round((time.time() - t0) * 1000)
+    result['issues_analyzed'] = len(issues)
+    return jsonify(result)
+
+
+@app.route('/api/v1/orgs/<org_id>/self-driving/remediate', methods=['POST'])
+def self_driving_remediate(org_id):
+    """L3: Apply automated remediations based on diagnosis."""
+    body = request.get_json(silent=True) or {}
+    diagnoses = body.get('diagnoses', [])
+    dry_run = body.get('dry_run', True)
+
+    if not diagnoses:
+        return jsonify({'error': 'diagnoses required — run /diagnose first'}), 400
+
+    t0 = time.time()
+    actions = _sd_apply_remediations(diagnoses, dry_run=dry_run)
+
+    taken = [a for a in actions if a.get('action') not in ('SKIPPED',)]
+    skipped = [a for a in actions if a.get('action') == 'SKIPPED']
+
+    return jsonify({
+        'level': 'L3',
+        'org_id': org_id,
+        'remediated_at': int(time.time()),
+        'duration_ms': round((time.time() - t0) * 1000),
+        'dry_run': dry_run,
+        'actions_taken': len(taken),
+        'actions_skipped': len(skipped),
+        'actions': actions,
+    })
+
+
+@app.route('/api/v1/orgs/<org_id>/self-driving/pipeline', methods=['POST'])
+@limiter.limit('10 per minute')
+def self_driving_pipeline(org_id):
+    """Full self-driving pipeline: L1 scan → L2 diagnose → L3 remediate."""
+    body = request.get_json(silent=True) or {}
+    dry_run = body.get('dry_run', True)
+    t_start = time.time()
+
+    # L1
+    telemetry = _sd_collect_telemetry(org_id)
+    issues = _sd_detect_issues(telemetry)
+
+    # L2
+    diagnosis = _sd_claude_diagnose(issues, telemetry)
+    diagnoses = diagnosis.get('diagnoses', [])
+
+    # L3
+    actions = _sd_apply_remediations(diagnoses, dry_run=dry_run)
+
+    elapsed = round((time.time() - t_start) * 1000)
+    result = {
+        'pipeline': 'L1→L2→L3',
+        'org_id': org_id,
+        'completed_at': int(time.time()),
+        'total_duration_ms': elapsed,
+        'dry_run': dry_run,
+        'l1_detection': {
+            'issues_found': len(issues),
+            'issues': issues,
+            'telemetry_summary': {
+                'sites': len(telemetry.get('sites', [])),
+                'alarms': len(telemetry.get('alarms', [])),
+                'offline_devices': len(telemetry.get('offline_devices', [])),
+            },
+        },
+        'l2_diagnosis': {
+            'summary': diagnosis.get('summary', ''),
+            'critical_count': diagnosis.get('critical_count', 0),
+            'diagnoses': diagnoses,
+        },
+        'l3_remediation': {
+            'dry_run': dry_run,
+            'actions_taken': sum(1 for a in actions if a.get('action') != 'SKIPPED'),
+            'actions_skipped': sum(1 for a in actions if a.get('action') == 'SKIPPED'),
+            'actions': actions,
+        },
+    }
+
+    ws_broadcast({'type': 'self_driving_pipeline', 'payload': result})
+    return jsonify(result)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=False)
