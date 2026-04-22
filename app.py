@@ -471,6 +471,11 @@ def reboot_device(site_id, device_id):
     return mist_json(mist_request('POST', f'/sites/{site_id}/devices/{device_id}/reboot'))
 
 
+@app.route('/api/v1/sites/<site_id>/stats', methods=['GET'])
+def site_stats(site_id):
+    return mist_json(mist_request('GET', f'/sites/{site_id}/stats', params=request.args))
+
+
 @app.route('/api/v1/sites/<site_id>/stats/devices', methods=['GET'])
 def device_stats(site_id):
     return mist_json(mist_request('GET', f'/sites/{site_id}/stats/devices', params=request.args))

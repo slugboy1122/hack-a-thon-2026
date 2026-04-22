@@ -841,7 +841,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         </div>
         <div class="grid-2">
           <div class="card">
-            <div class="card-header"><span class="card-title">Site Health</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="site-health-lbl">LOADING</span></div>
+            <div class="card-header"><span class="card-title">Site Health</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="site-health-lbl">LOADING</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:8px">24H</span></div>
             <div class="card-body"><div id="site-rows"><span class="spinner-sm"></span></div></div>
           </div>
           <div class="card">
@@ -1502,6 +1502,8 @@ function startApp() {
   loadAll();
   setTimeout(() => { loadWlans(); loadSwitches(); loadWan(); loadLog(); loadN8n(); loadNacRules(); }, 1200);
   connectDashboardWS();
+  showTab('dashboard');
+  setActive(document.querySelector('.nav-item'));
   resetInactivityTimer();
 }
 
@@ -1539,24 +1541,63 @@ async function loadSites() {
     tsel.innerHTML = '<option value="">All sites</option>' +
       allSites.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
-    renderSiteRows();
+    renderSiteRows();       // initial render with whatever SLE data we have
+    loadSiteStats();        // then enrich with 24h stats (async, re-renders on complete)
   } catch(e) {
     document.getElementById('site-rows').innerHTML =
       '<span style="font-family:var(--mono);font-size:11px;color:var(--danger)">// Error: ' + e.message + '</span>';
   }
 }
 
+// Keyed by site_id, populated by loadSiteStats()
+const _siteStats = {};
+
+async function loadSiteStats() {
+  const now   = Math.floor(Date.now() / 1000);
+  const start = now - 86400; // 24 h window
+  await Promise.all(allSites.map(async s => {
+    try {
+      const d = await mist(`/sites/${s.id}/stats?start=${start}&end=${now}`);
+      _siteStats[s.id] = d;
+    } catch(e) {}
+  }));
+  renderSiteRows();
+}
+
 function renderSiteRows() {
   const el = document.getElementById('site-rows');
   if (!allSites.length) { el.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">// No sites found</span>'; return; }
   el.innerHTML = allSites.map(s => {
-    const sle = s.sle_wifi_result_score || null;
-    const col = sle === null ? 'var(--muted)' : sle > 80 ? 'var(--ok)' : sle > 65 ? 'var(--warn)' : 'var(--danger)';
-    return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="width:7px;height:7px;border-radius:50%;background:${col};flex-shrink:0"></div>
-      <div style="flex:1;font-size:12px">${s.name}</div>
-      <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${s.country_code || ''}</div>
-      ${sle !== null ? `<div style="font-family:var(--mono);font-size:11px;color:${col}">${sle}%</div>` : ''}
+    const sle  = s.sle_wifi_result_score ?? null;
+    const st   = _siteStats[s.id] || {};
+    const sleCol = sle === null ? 'var(--muted)' : sle > 80 ? 'var(--ok)' : sle > 65 ? 'var(--warn)' : 'var(--danger)';
+
+    const apTotal  = st.num_ap   ?? '—';
+    const apUp     = st.num_ap_connected   ?? '—';
+    const swTotal  = st.num_switch         ?? '—';
+    const swUp     = st.num_switch_connected ?? '—';
+    const gwTotal  = st.num_gateway        ?? '—';
+    const gwUp     = st.num_gateway_connected ?? '—';
+    const clients  = st.num_clients        ?? '—';
+
+    const apOk  = typeof apTotal === 'number' && typeof apUp === 'number' && apUp === apTotal;
+    const apCol = typeof apUp === 'number' && typeof apTotal === 'number'
+                    ? (apUp === apTotal ? 'var(--ok)' : apUp > 0 ? 'var(--warn)' : 'var(--danger)')
+                    : 'var(--muted)';
+
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div style="width:7px;height:7px;border-radius:50%;background:${sleCol};flex-shrink:0"></div>
+        <div style="flex:1;font-size:12px;font-weight:500">${s.name}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${s.country_code || ''}</div>
+        ${sle !== null ? `<div style="font-family:var(--mono);font-size:11px;color:${sleCol};font-weight:600">${sle}%</div>` : ''}
+      </div>
+      <div style="display:flex;gap:16px;padding-left:17px;font-family:var(--mono);font-size:10px;color:var(--muted2)">
+        <span title="APs online/total (24h)">AP <span style="color:${apCol}">${apUp}/${apTotal}</span></span>
+        <span title="Switches online/total">SW <span style="color:var(--muted)">${swUp}/${swTotal}</span></span>
+        <span title="Gateways online/total">GW <span style="color:var(--muted)">${gwUp}/${gwTotal}</span></span>
+        <span title="Connected clients (24h)">Clients <span style="color:var(--accent2)">${clients}</span></span>
+      </div>
     </div>`;
   }).join('');
 }
