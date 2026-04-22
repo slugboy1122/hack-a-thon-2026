@@ -1,0 +1,52 @@
+{
+  "name": "tatooine",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-03-07",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  // Static assets — serves static/ directory; unknown paths fall through to index.html (SPA)
+  "assets": {
+    "directory": "./static",
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BROADCASTER",
+        "class_name": "Broadcaster"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["Broadcaster"]
+    }
+  ],
+  "workflows": [
+    {
+      // Durable alarm analysis pipeline — replaces n8n "Mist AI Ops" workflow
+      "name": "mist-event-pipeline",
+      "binding": "MIST_EVENT_WORKFLOW",
+      "class_name": "MistEventWorkflow"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "AUTOMATIONS",
+      "id": "90548f7d62094c0590560d19c62d9e15"
+    }
+  ],
+  "vars": {
+    "CLAUDE_MODEL": "claude-sonnet-4-6",
+    "MIST_API_URL": "https://api.mist.com/api/v1"
+  }
+  // Secrets (set with `wrangler secret put <NAME>`):
+  //   ANTHROPIC_API_KEY
+  //   WEBHOOK_SECRET
+  //   MIST_API_TOKEN
+}

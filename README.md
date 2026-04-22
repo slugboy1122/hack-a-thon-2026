@@ -4,7 +4,56 @@
 
 > Closes the loop from telemetry to action — detecting issues automatically, diagnosing root cause with Claude AI, and remediating problems without manual intervention.
 
-**Live demo:** [https://tatooine.thewifijedi.com](https://tatooine.thewifijedi.com)
+**Live:** [https://tatooine.thewifijedi.com](https://tatooine.thewifijedi.com)
+
+---
+
+## Architecture
+
+```mermaid
+graph TB
+    Browser["Browser / SPA\n(static/index.html)"]
+    CF["Cloudflare Edge\ntatooine.thewifijedi.com"]
+
+    subgraph Worker["Cloudflare Worker (src/index.ts)"]
+        Router["Route Dispatcher"]
+        Chat["Claude Chat\nclaude-sonnet-4-6"]
+        SD["Self-Driving Pipeline\nL1 → L2 → L3"]
+        Proxy["Mist API Proxy"]
+        WSProxy["Org Insights\nSSE Proxy"]
+    end
+
+    subgraph DO["Durable Objects"]
+        Broadcaster["Broadcaster DO\nWebSocket Hub\nevent + analysis ring buffers"]
+        Workflow["MistEventWorkflow\nDurable alarm pipeline\n(4-step, auto-retry)"]
+    end
+
+    KV["Workers KV\nAUTOMATIONS"]
+    Assets["Static Assets\nindex.html / favicon"]
+    Mist["Mist Cloud API\napi.mist.com"]
+    Anthropic["Anthropic API\nclaude-sonnet-4-6"]
+    MistWH["Mist Webhooks\nalarms / events"]
+
+    Browser -->|HTTPS| CF
+    CF -->|static files| Assets
+    CF -->|/api/* /ws /webhook/*| Router
+    Router --> Chat
+    Router --> SD
+    Router --> Proxy
+    Router --> WSProxy
+    Router -->|WebSocket upgrade| Broadcaster
+    Chat --> Anthropic
+    SD --> Proxy
+    SD --> Anthropic
+    Proxy -->|X-Mist-Token passthrough| Mist
+    WSProxy -->|wss stream| Mist
+    MistWH -->|POST /webhook/mist| Workflow
+    Workflow -->|step: analyze| Anthropic
+    Workflow -->|step: broadcast| Broadcaster
+    Workflow -->|step: trigger L1-L3| SD
+    Router -->|CRUD| KV
+    Broadcaster -->|push| Browser
+```
 
 ---
 
@@ -12,55 +61,60 @@
 
 | Level | Name | What it does |
 |-------|------|-------------|
-| **L1** | Detection | Polls live device stats (APs, switches, gateways) across every site in parallel; detects offline devices, RF interference, WAN brownouts, PoE overload |
-| **L2** | Diagnosis | Claude AI (`claude-sonnet-4-6`) classifies root cause with confidence scoring, using real radio/WAN/PoE telemetry as context |
-| **L3** | Remediation | Executes AP reboots, RRM resets, NOC escalations — dry-run safe |
+| **L1** | Detection | Polls live device stats across all sites in parallel; detects offline devices, RF interference, WAN brownouts, PoE overload, AP offline clusters |
+| **L2** | Diagnosis | Claude AI classifies root cause with confidence scoring using real radio/WAN/PoE telemetry as context |
+| **L3** | Remediation | Executes AP reboots, RRM resets, NOC escalations — dry-run safe by default |
 
-```bash
-# Run the full L1→L2→L3 pipeline
-curl -X POST https://tatooine.thewifijedi.com/api/v1/orgs/<ORG_ID>/self-driving/pipeline \
-  -H "X-Mist-Token: $MIST_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"dry_run": true}'
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Worker
+    participant Mist
+    participant Claude
+
+    Client->>Worker: POST /api/v1/orgs/:id/self-driving/pipeline
+    Worker->>Mist: GET /sites/*/stats/devices (parallel, all sites)
+    Mist-->>Worker: device telemetry
+
+    Note over Worker: L1 — Detect issues
+    Note over Worker: DEVICE_OFFLINE, RF_INTERFERENCE,
+    Note over Worker: WAN_BROWNOUT, POE_OVERLOAD
+
+    Worker->>Claude: diagnose issues + device context
+    Claude-->>Worker: root causes + confidence scores
+
+    Note over Worker: L2 — Classify root causes
+
+    Worker->>Mist: reboot / RRM reset (if !dry_run)
+
+    Note over Worker: L3 — Remediate
+
+    Worker-->>Client: pipeline result
 ```
 
 ---
 
-## Dashboard
+## Webhook Pipeline
 
-A single-page app with 13 tabs covering every layer of the network:
+```mermaid
+sequenceDiagram
+    participant Mist
+    participant Worker
+    participant Workflow
+    participant Claude
+    participant Broadcaster
+    participant Dashboard
 
-| Tab | Description |
-|-----|-------------|
-| **Dashboard** | Network overview — Sites, APs, Switches, Gateways KPIs; site health table with 24h stats (clients, events, SLE); live event feed; Marvis Actions; SLE scores |
-| **AI Assistant** | Claude-powered chat with live Mist org access |
-| **Access Points** | Live AP stats — radio channels, noise floor, clients per band, click-through for device detail |
-| → Connected Clients | Wireless clients per site (`/stats/clients`) |
-| **WLANs** | Org-level WLAN inventory |
-| **Switches** | Switch fleet with PoE stats; click-through detail modal with full port table and PoE utilization bar |
-| → Connected Clients | Wired clients per site (`/wired_clients/search`) |
-| **WAN / Gateways** | Gateway fleet with live WAN interface status + device event feed (last 24h) |
-| **Access Assurance** | NAC rules — 802.1X, MAB, PSK |
-| → Connected Clients | NAC-authenticated clients (`/nac_clients/search`) |
-| **Self-Driving Pipeline** | L1→L2→L3 UI with progressive rendering and dry-run toggle |
-| **n8n AI Ops** | Webhook status, Claude analyses, live event feed |
-| **Org Insights** | Live Mist WebSocket stream |
-| **Audit Log** | Full org event history |
+    Mist->>Worker: POST /webhook/mist
+    Worker->>Workflow: MistEventWorkflow.create()
 
----
-
-## Self-Driving Pipeline API
-
-| Endpoint | Level | Description |
-|----------|-------|-------------|
-| `GET /api/v1/orgs/:id/self-driving/scan` | L1 | Detect issues from live Mist telemetry |
-| `POST /api/v1/orgs/:id/self-driving/diagnose` | L2 | Claude root-cause analysis |
-| `POST /api/v1/orgs/:id/self-driving/remediate` | L3 | Execute automated actions |
-| `POST /api/v1/orgs/:id/self-driving/pipeline` | L1→L2→L3 | Full pipeline, single call |
-
-**Detected issue types:** `DEVICE_OFFLINE` · `RF_INTERFERENCE` · `WAN_BROWNOUT` · `POE_OVERLOAD` · `AP_OFFLINE_CLUSTER` · `ALARM_*`
-
-**Root causes (Claude):** `RF_INTERFERENCE` · `AP_OFFLINE` · `UPSTREAM_SWITCH` · `WAN_BROWNOUT` · `FIRMWARE_BUG` · `CONFIG_ERROR` · `POE_OVERLOAD` · `UNKNOWN`
+    Workflow->>Workflow: step 1 — log-event
+    Workflow->>Claude: step 2 — claude-analyze (alarms only)
+    Claude-->>Workflow: analysis + severity
+    Workflow->>Broadcaster: step 3 — broadcast-analysis
+    Broadcaster->>Dashboard: WebSocket push
+    Workflow->>Worker: step 4 — trigger pipeline (3+ critical alarms)
+```
 
 ---
 
@@ -68,116 +122,107 @@ A single-page app with 13 tabs covering every layer of the network:
 
 | Component | Technology |
 |-----------|-----------|
-| Frontend | Single-file HTML/CSS/JS — light mode default, KRAYT TERMINAL dark theme toggle |
-| Backend | Python 3.11 + Flask + gunicorn (1 worker, 8 threads) |
+| Runtime | Cloudflare Workers (TypeScript, ES modules) |
+| Frontend | Single-file HTML/CSS/JS SPA — light mode + KRAYT TERMINAL dark theme |
 | AI | Anthropic Claude `claude-sonnet-4-6` |
-| Automation | n8n cloud (`thewifijedi.app.n8n.cloud`) |
-| Real-time | WebSocket server (port 8765) + SSE stream |
-| Data | PostgreSQL + Redis |
-| Proxy | nginx + Cloudflare Tunnel |
-| Fonts | Cinzel · Open Sans · Space Mono |
+| Real-time | Durable Object WebSocket Hibernation API (`Broadcaster`) |
+| Alarm pipeline | Cloudflare Workflows — durable, auto-retry (`MistEventWorkflow`) |
+| Automations store | Workers KV (`AUTOMATIONS` namespace) |
+| Static files | Cloudflare Static Assets binding |
 
 ---
 
-## n8n AI Ops
+## Dashboard Tabs
 
-Mist webhooks are relayed through Tatooine to n8n cloud for async Claude analysis:
-
-```
-Mist Cloud → POST /webhook/mist (Tatooine relay)
-           → https://thewifijedi.app.n8n.cloud/webhook/mist-events
-           → Claude analyzes high-priority alarms
-           → POST /webhook/n8n/analysis (callback to dashboard)
-```
-
-Workflow: [thewifijedi.app.n8n.cloud/workflow/hxdPp1YOKcS13L7d](https://thewifijedi.app.n8n.cloud/workflow/hxdPp1YOKcS13L7d)
-
----
-
-## Mist API Coverage
-
-```
-# Device stats (pipeline + dashboard)
-GET /sites/:id/stats/devices?type=ap
-GET /sites/:id/stats/devices?type=switch
-GET /sites/:id/stats/devices?type=gateway
-GET /sites/:id/stats/devices/:device_id?type=ap|switch|gateway
-
-# WAN device events
-GET /sites/:id/devices/events/search?mac=<mac>&duration=1d
-
-# Clients
-GET /sites/:id/stats/clients              wireless
-GET /sites/:id/wired_clients/search       wired
-GET /sites/:id/nac_clients/search         Access Assurance
-
-# Org-level
-GET /orgs/:id/sites
-GET /orgs/:id/wlans
-GET /orgs/:id/alarms
-GET /orgs/:id/stats
-GET /orgs/:id/logs
-GET /orgs/:id/nacrules
-GET /orgs/:id/nactags
-GET /orgs/:id/marvis/action
-
-# SLE
-GET /sites/:id/sle/*
-
-# Site 24h stats (Site Health tile)
-GET /sites/:id/stats
-
-# Org insights stream
-GET /orgs/:id/insights/stream             SSE
-
-# Remediation
-POST /sites/:id/devices/:id/reboot
-```
+| Tab | Description |
+|-----|-------------|
+| **Dashboard** | Network overview — Sites, APs, Switches, Gateways KPIs; site health table with 24h stats; live event feed; Marvis Actions; SLE scores |
+| **AI Assistant** | Claude-powered chat with live Mist org access and tool use |
+| **Access Points** | Live AP stats — radio channels, noise floor, clients per band, device detail modal |
+| → Connected Clients | Wireless clients per site |
+| **WLANs** | Org-level WLAN inventory |
+| **Switches** | Switch fleet with PoE stats; port table + PoE utilization detail modal |
+| → Connected Clients | Wired clients per site |
+| **WAN / Gateways** | Gateway fleet with live WAN interface status + device event feed (last 24h) |
+| **Access Assurance** | NAC rules — 802.1X, MAB, PSK |
+| → Connected Clients | NAC-authenticated clients |
+| **Self-Driving Pipeline** | L1→L2→L3 UI with progressive rendering and dry-run toggle |
+| **AI Ops** | Webhook status, Claude analyses, live event feed |
+| **Org Insights** | Live Mist WebSocket stream |
+| **Audit Log** | Full org event history |
 
 ---
 
-## Security
-
-| Header | Value |
-|--------|-------|
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
-| `Content-Security-Policy` | `default-src 'self'` + scoped directives, no `unsafe-eval` |
-| `X-Content-Type-Options` | `nosniff` |
-| `X-Frame-Options` | `SAMEORIGIN` |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` |
-
----
-
-## Deployment
+## Quick Start
 
 ```bash
-git clone https://github.com/slugboy1122/hack-a-thon-2026.git
-cd hack-a-thon-2026
-cp .env.example .env    # add MIST_API_TOKEN and ANTHROPIC_API_KEY
-docker compose up -d
-# Dashboard: http://localhost:8080
+git clone <repo>
+cd tatooine-cf-worker
+bash setup.sh     # installs Node.js, prompts for secrets, deploys
 ```
 
-### Environment Variables
+Or step by step:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MIST_API_TOKEN` | Yes | Juniper Mist API token |
-| `ANTHROPIC_API_KEY` | Yes | Anthropic Claude API key |
-| `MIST_ORG_ID` | No | Default org (overridden by token auth) |
-| `N8N_URL` | No | n8n instance URL (default: `https://thewifijedi.app.n8n.cloud`) |
-| `REDIS_URL` | No | Redis connection (default: in-memory) |
-| `DATABASE_URL` | No | PostgreSQL connection URL |
+```bash
+npm install
+wrangler secret put ANTHROPIC_API_KEY
+wrangler secret put MIST_API_TOKEN       # optional server-side fallback
+wrangler secret put WEBHOOK_SECRET       # optional webhook validation
+wrangler deploy
+```
 
-### Docker Services
+See [START_HERE.md](START_HERE.md) for full setup instructions.
 
-| Service | Port | Description |
-|---------|------|-------------|
-| `nginx` | 8080 | Reverse proxy + security headers |
-| `mist-api` | 8000 | Flask/gunicorn backend |
-| `postgres` | 5432 | Database |
-| `redis` | 6379 | Cache / rate limiting |
-| `cloudflared` | — | Cloudflare Tunnel |
+---
+
+## API Reference
+
+### Self-Driving Pipeline
+
+| Endpoint | Level | Description |
+|----------|-------|-------------|
+| `GET /api/v1/orgs/:id/self-driving/scan` | L1 | Detect issues from live telemetry |
+| `POST /api/v1/orgs/:id/self-driving/diagnose` | L2 | Claude root-cause analysis |
+| `POST /api/v1/orgs/:id/self-driving/remediate` | L3 | Execute automated actions |
+| `POST /api/v1/orgs/:id/self-driving/pipeline` | L1→L2→L3 | Full pipeline, single call |
+
+### AI Chat
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/v1/chat` | Stream Claude response with Mist tool use |
+
+### Automations (KV-backed)
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/automations` | List all automations |
+| `POST /api/v1/automations` | Create automation |
+| `PUT /api/v1/automations/:id` | Update automation |
+| `DELETE /api/v1/automations/:id` | Delete automation |
+
+### Real-time
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /ws` | WebSocket upgrade → Broadcaster DO |
+| `GET /api/n8n/events` | Last 50 webhook events |
+| `GET /api/n8n/analyses` | Last 20 Claude analyses |
+| `GET /api/ws/status` | Connection count + buffer sizes |
+
+### Webhooks
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /webhook/mist` | Mist alarm/event receiver → Workflow |
+
+---
+
+## Auth
+
+Token-only — paste a Mist API token into the UI. Org privileges are derived from `/self`. Multi-org tokens show an org picker. Token is held in session memory only, never stored server-side.
+
+Session auto-expires after 5 minutes of inactivity with a 60-second countdown warning.
 
 ---
 
@@ -185,29 +230,33 @@ docker compose up -d
 
 | Feature | Description |
 |---------|-------------|
-| **Mist API Counter** | Sidebar widget tracks cumulative Mist API calls and total request time for the session; progress bar turns amber at 50% and red at 80% of the 5000-call limit |
-| **Session Timeout** | 5-minute inactivity timer with a 60-second countdown warning before automatic sign-out |
-| **Theme Toggle** | Light mode (default) and KRAYT TERMINAL dark mode; API counter and all UI elements adapt to both themes |
+| **Mist API Counter** | Tracks cumulative API calls and total request time; progress bar turns amber at 50% and red at 80% of the 5000-call daily limit |
+| **Session Timeout** | 5-minute inactivity timer with 60-second countdown before automatic sign-out |
+| **Theme Toggle** | Light mode (default) and KRAYT TERMINAL dark mode |
 
 ---
 
-## Auth
+## Security Headers
 
-Token-only — paste a Mist API token and org privileges are derived from `/self`. Multi-org tokens show an org picker. No email or org ID required. Token is held in session memory only, never stored server-side.
+| Header | Value |
+|--------|-------|
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+| `Content-Security-Policy` | `default-src 'self'` + scoped directives |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `SAMEORIGIN` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
 
 ---
 
 ## Project Structure
 
 ```
-├── app.py                              Flask backend — 50+ routes, self-driving pipeline, n8n bridge
-├── static/
-│   └── index.html                      Single-page dashboard (all UI, themes, JS)
-├── websocket_server.py                 Real-time WebSocket push server
-├── docker-compose.yml                  Stack: nginx, gunicorn, postgres, redis, cloudflared
-├── nginx.conf                          Reverse proxy + security headers
-├── Dockerfile                          mist-api container
-├── requirements.txt                    Direct dependencies
-├── requirements.lock                   Fully pinned transitive dependencies
-└── Mist AI Ops — Claude + Webhooks.json  n8n workflow export
+src/
+└── index.ts        Worker — all routes, Broadcaster DO, MistEventWorkflow
+static/
+└── index.html      Single-page dashboard
+setup.sh            One-shot setup script (Node.js + secrets + deploy)
+wrangler.jsonc      Cloudflare Worker config
+package.json        Dependencies: @anthropic-ai/sdk, wrangler
+tsconfig.json       TypeScript config
 ```
