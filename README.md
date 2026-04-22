@@ -90,7 +90,7 @@ Mist Cloud → POST /webhook/mist (Tatooine relay)
            → POST /webhook/n8n/analysis (callback to dashboard)
 ```
 
-Workflow: [thewifijedi.app.n8n.cloud/workflow/hYqXcIroggeg61BL](https://thewifijedi.app.n8n.cloud/workflow/hYqXcIroggeg61BL)
+Workflow: [thewifijedi.app.n8n.cloud/workflow/hxdPp1YOKcS13L7d](https://thewifijedi.app.n8n.cloud/workflow/hxdPp1YOKcS13L7d)
 
 ---
 
