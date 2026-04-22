@@ -142,6 +142,9 @@ def get_token():
     return request.headers.get('X-Mist-Token') or MIST_API_TOKEN
 
 
+_mist_api_counter = {'total': 0, 'session_start': __import__('time').time()}
+_mist_api_lock = __import__('threading').Lock()
+
 def mist_request(method, path, token=None, **kwargs):
     tok = token or get_token()
     headers = {
@@ -149,6 +152,8 @@ def mist_request(method, path, token=None, **kwargs):
         'Content-Type': 'application/json',
     }
     headers.update(kwargs.pop('headers', {}))
+    with _mist_api_lock:
+        _mist_api_counter['total'] += 1
     try:
         return requests.request(method, f'{MIST_API_URL}{path}', headers=headers, timeout=30, **kwargs)
     except requests.RequestException as e:
@@ -371,6 +376,15 @@ def ready():
 @app.route('/metrics')
 def metrics():
     return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
+
+
+@app.route('/api/v1/usage', methods=['GET'])
+def api_usage():
+    import time
+    with _mist_api_lock:
+        total = _mist_api_counter['total']
+        uptime = int(time.time() - _mist_api_counter['session_start'])
+    return jsonify({'mist_api_calls': total, 'uptime_seconds': uptime})
 
 
 @app.route('/api/v1/chat', methods=['POST'])
