@@ -138,7 +138,7 @@
           "parameters": [
             {
               "name": "x-api-key",
-              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+              "value": "={{ $vars.ANTHROPIC_API_KEY }}"
             },
             {
               "name": "anthropic-version",
@@ -280,7 +280,7 @@
           "parameters": [
             {
               "name": "x-api-key",
-              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+              "value": "={{ $vars.ANTHROPIC_API_KEY }}"
             },
             {
               "name": "anthropic-version",
@@ -560,13 +560,13 @@
     },
     {
       "parameters": {
-        "url": "={{ 'https://api.mist.com/api/v1/orgs/' + ($json.query.org_id || $env.MIST_DEFAULT_ORG_ID) + '/sites' }}",
+        "url": "={{ 'https://api.mist.com/api/v1/orgs/' + ($json.query.org_id || $vars.MIST_DEFAULT_ORG_ID) + '/sites' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+              "value": "={{ 'Token ' + $vars.MIST_API_TOKEN }}"
             }
           ]
         },
@@ -589,7 +589,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+              "value": "={{ 'Token ' + $vars.MIST_API_TOKEN }}"
             }
           ]
         },
@@ -612,7 +612,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+              "value": "={{ 'Token ' + $vars.MIST_API_TOKEN }}"
             }
           ]
         },
@@ -629,13 +629,13 @@
     },
     {
       "parameters": {
-        "url": "={{ 'https://api.mist.com/api/v1/orgs/' + ($json.query.org_id || $env.MIST_DEFAULT_ORG_ID) + '/alarms/search' }}",
+        "url": "={{ 'https://api.mist.com/api/v1/orgs/' + ($json.query.org_id || $vars.MIST_DEFAULT_ORG_ID) + '/alarms/search' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+              "value": "={{ 'Token ' + $vars.MIST_API_TOKEN }}"
             }
           ]
         },
@@ -659,7 +659,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{ 'Token ' + $env.MIST_API_TOKEN }}"
+              "value": "={{ 'Token ' + $vars.MIST_API_TOKEN }}"
             }
           ]
         },
