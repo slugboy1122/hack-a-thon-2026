@@ -2454,9 +2454,57 @@ function renderDeviceDetail(d, type) {
     }).join('')+`</div></div>`;
   }
   if (type==='switch') {
-    const ports=Object.entries(d.port_stat||{}).slice(0,8);
-    if(ports.length) html+=`<div class="detail-section"><div class="detail-section-title">Port Stats</div><div class="detail-info-grid">${ports.map(([port,p])=>`<div class="detail-item"><div class="detail-item-label">${port}</div><div class="detail-item-val">${p.speed||'—'}·${p.duplex||'—'}</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px">${fmtBytes(p.tx_bytes||0)}/${fmtBytes(p.rx_bytes||0)}</div></div>`).join('')}</div></div>`;
-    if(d.poe_stat) { const poe=d.poe_stat; html+=`<div class="detail-section"><div class="detail-section-title">PoE</div><div class="detail-info-grid"><div class="detail-item"><div class="detail-item-label">Draw</div><div class="detail-item-val">${(poe.current_draw||0).toFixed(1)}W</div></div><div class="detail-item"><div class="detail-item-label">Budget</div><div class="detail-item-val">${(poe.max_power||0).toFixed(1)}W</div></div><div class="detail-item"><div class="detail-item-label">Util</div><div class="detail-item-val">${poe.max_power?Math.round((poe.current_draw/poe.max_power)*100):'—'}%</div></div></div></div>`; }
+    // PoE summary
+    if (d.poe_stat) {
+      const poe = d.poe_stat;
+      const draw = (poe.current_draw||0), budget = (poe.max_power||0);
+      const pct = budget ? Math.min(100, Math.round(draw/budget*100)) : 0;
+      const poeCol = pct>90?'var(--danger)':pct>70?'var(--warn)':'var(--ok)';
+      html += `<div class="detail-section"><div class="detail-section-title">PoE Budget</div>
+        <div style="display:flex;gap:24px;align-items:center;margin-bottom:10px">
+          <div class="detail-item" style="min-width:80px"><div class="detail-item-label">Draw</div><div class="detail-item-val" style="color:${poeCol}">${draw.toFixed(1)} W</div></div>
+          <div class="detail-item" style="min-width:80px"><div class="detail-item-label">Budget</div><div class="detail-item-val">${budget.toFixed(1)} W</div></div>
+          <div class="detail-item" style="min-width:60px"><div class="detail-item-label">Util</div><div class="detail-item-val" style="color:${poeCol}">${pct}%</div></div>
+          <div style="flex:1"><div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${poeCol};border-radius:3px;transition:width .4s"></div></div></div>
+        </div></div>`;
+    }
+    // Port table
+    const ports = Object.entries(d.port_stat||{}).sort(([a],[b])=>a.localeCompare(b,undefined,{numeric:true}));
+    if (ports.length) {
+      const portRows = ports.map(([port, p]) => {
+        const up = p.up !== false;
+        const speed = p.speed ? (p.speed>=1000 ? (p.speed/1000)+'G' : p.speed+'M') : '—';
+        const clients = p.mac_count != null ? p.mac_count : '—';
+        const poeW = p.poe_watts != null ? p.poe_watts.toFixed(1)+'W' : (p.poe_enabled ? '—' : '');
+        const tx = p.tx_bytes ? fmtBytes(p.tx_bytes) : '—';
+        const rx = p.rx_bytes ? fmtBytes(p.rx_bytes) : '—';
+        const neighbor = p.neighbor?.system_name || '';
+        const errs = (p.rx_errors||0)+(p.tx_errors||0);
+        return `<tr>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--muted2);white-space:nowrap">${port}</td>
+          <td><span class="tag ${up?'ok':'danger'}" style="font-size:10px">${up?'up':'dn'}</span></td>
+          <td style="font-family:var(--mono);font-size:11px">${speed}</td>
+          <td style="font-family:var(--mono);font-size:11px;text-align:center">${clients}</td>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--warn)">${poeW}</td>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--ok)">${tx}</td>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--accent2)">${rx}</td>
+          <td style="font-size:11px;color:var(--muted2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${neighbor}</td>
+          ${errs?`<td style="font-family:var(--mono);font-size:10px;color:var(--danger)">${errs} err</td>`:'<td></td>'}
+        </tr>`;
+      }).join('');
+      const upCount = ports.filter(([,p])=>p.up!==false).length;
+      html += `<div class="detail-section">
+        <div class="detail-section-title" style="display:flex;justify-content:space-between">
+          <span>Ports</span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--muted2);font-weight:400">${upCount}/${ports.length} up</span>
+        </div>
+        <div style="overflow-x:auto;margin-top:6px">
+          <table class="ap-table" style="font-size:12px">
+            <thead><tr><th>Port</th><th>Link</th><th>Speed</th><th>Clients</th><th>PoE</th><th>TX</th><th>RX</th><th>LLDP Neighbor</th><th></th></tr></thead>
+            <tbody>${portRows}</tbody>
+          </table>
+        </div></div>`;
+    }
   }
   if (type==='gateway'&&d.wan_interface_stat) {
     html+=`<div class="detail-section"><div class="detail-section-title">WAN Interfaces</div><div class="detail-info-grid">${Object.entries(d.wan_interface_stat).map(([iface,w])=>`<div class="detail-item"><div class="detail-item-label">${iface}</div><div class="detail-item-val">${w.ip||'—'}</div><div style="font-family:var(--mono);font-size:10px;margin-top:3px"><span class="tag ${w.up?'ok':'danger'}">${w.up?'up':'down'}</span>${w.latency!==undefined?`<span style="color:var(--muted);margin-left:4px">${w.latency}ms</span>`:''}</div></div>`).join('')}</div></div>`;
