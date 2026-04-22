@@ -39,7 +39,17 @@ body::before{
 ::-webkit-scrollbar-thumb:hover{background:rgba(200,150,55,0.45)}
 
 /* ══ LANDING PAGE ═══════════════════════════════════════════════════════════════ */
-#login-screen{display:flex;flex-direction:column;min-height:100vh;background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(232,160,64,0.07) 0%,transparent 60%),var(--bg)}
+#login-screen{display:flex;flex-direction:column;min-height:100vh;background:var(--bg);position:relative;overflow:hidden}
+#login-screen::before{content:'';position:fixed;inset:0;z-index:0;
+  background-image:url('https://images-assets.nasa.gov/image/art002e009288/art002e009288~large.jpg');
+  background-size:cover;background-position:center 30%;background-repeat:no-repeat;
+  opacity:0.18;pointer-events:none;transform:scale(1.02)}
+#login-screen::after{content:'';position:fixed;inset:0;z-index:1;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%,rgba(232,160,64,0.07) 0%,transparent 60%),
+    linear-gradient(to bottom,rgba(7,5,4,0.55) 0%,rgba(7,5,4,0.3) 40%,rgba(7,5,4,0.75) 100%);
+  pointer-events:none}
+#login-screen > *{position:relative;z-index:2}
 .lp-nav{display:flex;align-items:center;justify-content:space-between;padding:14px 40px;border-bottom:1px solid var(--border);background:rgba(7,5,4,0.96);backdrop-filter:blur(8px);position:sticky;top:0;z-index:10}
 .lp-nav-logo{display:flex;align-items:center;gap:12px}
 .lp-nav-sun-wrap{position:relative;width:36px;height:36px;flex-shrink:0}
@@ -516,8 +526,12 @@ html[data-theme="light"] .radio-card{background:var(--bg3)}
 html[data-theme="light"] .chat-ai{background:var(--bg3)}
 html[data-theme="light"] .chat-user{background:rgba(0,160,220,0.08);border-color:rgba(0,160,220,0.2)}
 /* Landing page light */
-html[data-theme="light"] #login-screen{
-  background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(0,160,220,0.1) 0%,transparent 60%),var(--bg);
+html[data-theme="light"] #login-screen{background:var(--bg)}
+html[data-theme="light"] #login-screen::before{opacity:0.13}
+html[data-theme="light"] #login-screen::after{
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%,rgba(0,160,220,0.07) 0%,transparent 60%),
+    linear-gradient(to bottom,rgba(255,255,255,0.7) 0%,rgba(255,255,255,0.5) 40%,rgba(255,255,255,0.85) 100%);
 }
 html[data-theme="light"] .lp-nav{background:rgba(255,255,255,0.97);border-bottom-color:rgba(0,119,181,0.18)}
 html[data-theme="light"] .lp-connect-btn{border-color:var(--accent);color:var(--accent);box-shadow:0 0 12px rgba(0,119,181,0.06)}
