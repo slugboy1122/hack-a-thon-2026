@@ -1,11 +1,5 @@
 .env
-tatooine_api_keys.txt
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-.venv/
-venv/
-*.log
+node_modules/
+.wrangler/
 .DS_Store
-postgres-data/
+*.log
