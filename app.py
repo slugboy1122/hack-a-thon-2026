@@ -684,7 +684,7 @@ def insights_stream(org_id):
         ws = None
         try:
             ws = websocket.WebSocket()
-            ws.connect(f'{mist_ws_url}?token={token}')
+            ws.connect(mist_ws_url, header=[f'Authorization: Token {token}'])
             ws.send(subscribe_msg)
             while True:
                 try:
