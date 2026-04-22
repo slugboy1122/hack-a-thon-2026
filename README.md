@@ -32,12 +32,12 @@ A single-page app with 13 tabs covering every layer of the network:
 
 | Tab | Description |
 |-----|-------------|
-| **Dashboard** | Network overview — Sites, APs, Switches, Gateways KPIs; site health table; live event feed; Marvis Actions; SLE scores |
+| **Dashboard** | Network overview — Sites, APs, Switches, Gateways KPIs; site health table with 24h stats (clients, events, SLE); live event feed; Marvis Actions; SLE scores |
 | **AI Assistant** | Claude-powered chat with live Mist org access |
 | **Access Points** | Live AP stats — radio channels, noise floor, clients per band, click-through for device detail |
 | → Connected Clients | Wireless clients per site (`/stats/clients`) |
 | **WLANs** | Org-level WLAN inventory |
-| **Switches** | Switch fleet with PoE stats and port details |
+| **Switches** | Switch fleet with PoE stats; click-through detail modal with full port table and PoE utilization bar |
 | → Connected Clients | Wired clients per site (`/wired_clients/search`) |
 | **WAN / Gateways** | Gateway fleet with live WAN interface status + device event feed (last 24h) |
 | **Access Assurance** | NAC rules — 802.1X, MAB, PSK |
@@ -124,6 +124,9 @@ GET /orgs/:id/marvis/action
 # SLE
 GET /sites/:id/sle/*
 
+# Site 24h stats (Site Health tile)
+GET /sites/:id/stats
+
 # Org insights stream
 GET /orgs/:id/insights/stream             SSE
 
@@ -175,6 +178,16 @@ docker compose up -d
 | `postgres` | 5432 | Database |
 | `redis` | 6379 | Cache / rate limiting |
 | `cloudflared` | — | Cloudflare Tunnel |
+
+---
+
+## UX Features
+
+| Feature | Description |
+|---------|-------------|
+| **Mist API Counter** | Sidebar widget tracks cumulative Mist API calls and total request time for the session; progress bar turns amber at 50% and red at 80% of the 5000-call limit |
+| **Session Timeout** | 5-minute inactivity timer with a 60-second countdown warning before automatic sign-out |
+| **Theme Toggle** | Light mode (default) and KRAYT TERMINAL dark mode; API counter and all UI elements adapt to both themes |
 
 ---
 

@@ -43,6 +43,12 @@ anthropic_client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY
 MIST_API_URL = os.environ.get('MIST_API_URL', 'https://api.mist.com/api/v1')
 MIST_API_TOKEN = os.environ.get('MIST_API_TOKEN', '')
 MIST_ORG_ID = os.environ.get('MIST_ORG_ID', '')
+
+MIST_ALLOWED_HOSTS = {
+    'api.mist.com', 'api.gc1.mist.com', 'api.ac2.mist.com', 'api.gc2.mist.com',
+    'api.gc4.mist.com', 'api.eu.mist.com', 'api.gc3.mist.com', 'api.ac6.mist.com',
+    'api.gc6.mist.com', 'api.ac5.mist.com', 'api.gc5.mist.com', 'api.gc7.mist.com',
+}
 CLAUDE_MODEL = os.environ.get('CLAUDE_MODEL', 'claude-sonnet-4-6')
 WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
 
@@ -142,8 +148,21 @@ def get_token():
     return request.headers.get('X-Mist-Token') or MIST_API_TOKEN
 
 
-_mist_api_counter = {'total': 0, 'session_start': __import__('time').time()}
+_mist_api_counter = {'total': 0, 'session_start': __import__('time').time(), 'total_seconds': 0.0}
 _mist_api_lock = __import__('threading').Lock()
+
+def _mist_track(t0: float):
+    elapsed = __import__('time').time() - t0
+    with _mist_api_lock:
+        _mist_api_counter['total'] += 1
+        _mist_api_counter['total_seconds'] += elapsed
+
+def get_mist_base_url():
+    host = request.headers.get('X-Mist-Host', '').strip()
+    if host and host in MIST_ALLOWED_HOSTS:
+        return f'https://{host}/api/v1'
+    return MIST_API_URL
+
 
 def mist_request(method, path, token=None, **kwargs):
     tok = token or get_token()
@@ -152,13 +171,15 @@ def mist_request(method, path, token=None, **kwargs):
         'Content-Type': 'application/json',
     }
     headers.update(kwargs.pop('headers', {}))
-    with _mist_api_lock:
-        _mist_api_counter['total'] += 1
+    base_url = get_mist_base_url()
+    t0 = __import__('time').time()
     try:
-        return requests.request(method, f'{MIST_API_URL}{path}', headers=headers, timeout=30, **kwargs)
+        return requests.request(method, f'{base_url}{path}', headers=headers, timeout=30, **kwargs)
     except requests.RequestException as e:
         log.error('Mist API request failed: %s', e)
         raise
+    finally:
+        _mist_track(t0)
 
 
 # ============================================================================
@@ -380,11 +401,11 @@ def metrics():
 
 @app.route('/api/v1/usage', methods=['GET'])
 def api_usage():
-    import time
     with _mist_api_lock:
-        total = _mist_api_counter['total']
-        uptime = int(time.time() - _mist_api_counter['session_start'])
-    return jsonify({'mist_api_calls': total, 'uptime_seconds': uptime})
+        total   = _mist_api_counter['total']
+        secs    = _mist_api_counter['total_seconds']
+        uptime  = int(time.time() - _mist_api_counter['session_start'])
+    return jsonify({'mist_api_calls': total, 'total_seconds': round(secs, 1), 'uptime_seconds': uptime})
 
 
 @app.route('/api/v1/chat', methods=['POST'])
@@ -864,11 +885,24 @@ def _sd_collect_telemetry(org_id: str) -> dict:
     """Pull live device stats per site (APs, switches, gateways) plus alarms."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    # Capture token and base URL in the main Flask request thread before spawning
+    # worker threads — Flask's request proxy is not available in child threads.
+    _tok = get_token()
+    _base_url = get_mist_base_url()
+
+    def _get(path, **params):
+        hdrs = {'Authorization': f'Token {_tok}', 'Content-Type': 'application/json'}
+        t0 = time.time()
+        try:
+            return requests.get(f'{_base_url}{path}', headers=hdrs, params=params or None, timeout=15)
+        finally:
+            _mist_track(t0)
+
     telemetry: dict = {'org_id': org_id, 'collected_at': int(time.time())}
 
     # Alarms
     try:
-        r = mist_request('GET', f'/orgs/{org_id}/alarms', params={'limit': 100})
+        r = _get(f'/orgs/{org_id}/alarms', limit=100)
         data = r.json() if r.status_code == 200 else {}
         telemetry['alarms'] = data.get('results', data) if isinstance(data, dict) else data
     except Exception:
@@ -877,7 +911,7 @@ def _sd_collect_telemetry(org_id: str) -> dict:
     # Sites list
     sites = []
     try:
-        r = mist_request('GET', f'/orgs/{org_id}/sites')
+        r = _get(f'/orgs/{org_id}/sites')
         raw = r.json() if r.status_code == 200 else []
         sites = raw if isinstance(raw, list) else raw.get('results', [])
         telemetry['sites'] = sites
@@ -886,7 +920,7 @@ def _sd_collect_telemetry(org_id: str) -> dict:
 
     # Org aggregate stats (for cluster-level health flags)
     try:
-        r = mist_request('GET', f'/orgs/{org_id}/stats')
+        r = _get(f'/orgs/{org_id}/stats')
         telemetry['org_stats'] = r.json() if r.status_code == 200 else {}
     except Exception:
         telemetry['org_stats'] = {}
@@ -904,15 +938,15 @@ def _sd_collect_telemetry(org_id: str) -> dict:
         aps, switches, gateways = [], [], []
         for dtype, bucket in [('ap', aps), ('switch', switches), ('gateway', gateways)]:
             try:
-                r = mist_request('GET', f'/sites/{sid}/stats/devices', params={'type': dtype})
+                r = _get(f'/sites/{sid}/stats/devices', type=dtype)
                 devs = r.json() if r.status_code == 200 else []
                 if isinstance(devs, list):
                     for d in devs:
                         d['_site_id'] = sid
                         d['_site_name'] = sname
                     bucket.extend(devs)
-            except Exception:
-                pass
+            except Exception as e:
+                log.debug('_fetch_site %s %s: %s', sid, dtype, e)
         return aps, switches, gateways
 
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -944,7 +978,7 @@ def _sd_collect_telemetry(org_id: str) -> dict:
 
     # Recent audit logs
     try:
-        r = mist_request('GET', f'/orgs/{org_id}/logs', params={'limit': 20})
+        r = _get(f'/orgs/{org_id}/logs', limit=20)
         data = r.json() if r.status_code == 200 else {}
         telemetry['audit_logs'] = data.get('results', [])
     except Exception:

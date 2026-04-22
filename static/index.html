@@ -229,6 +229,27 @@ header::after{
 .sidebar-spacer{flex:1}
 .sidebar-dunes{width:100%;height:70px;pointer-events:none;opacity:0.28;flex-shrink:0}
 
+/* ── API counter widget ── */
+#api-counter-widget{display:none;padding:10px 12px 10px;border-top:1px solid var(--border);flex-shrink:0;background:rgba(200,150,55,0.04)}
+.api-ctr-label{font-family:var(--mono);font-size:9px;color:rgba(216,207,192,0.75);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:7px}
+.api-ctr-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.api-ctr-track{flex:1;height:3px;background:rgba(200,150,55,0.28);position:relative;overflow:hidden;border-radius:2px}
+.api-ctr-fill{position:absolute;left:0;top:0;height:100%;width:0%;transition:width 0.4s ease;background:var(--accent);border-radius:2px}
+.api-ctr-fill.warn{background:var(--warn)}
+.api-ctr-fill.danger{background:var(--danger)}
+.api-ctr-value{font-family:var(--mono);font-size:11px;font-weight:700;white-space:nowrap;letter-spacing:0.03em;color:var(--accent)}
+.api-ctr-value.warn{color:var(--warn)}
+.api-ctr-value.danger{color:var(--danger)}
+.api-ctr-sub{font-family:var(--mono);font-size:9px;color:rgba(216,207,192,0.6);letter-spacing:0.04em}
+@keyframes api-flash{0%{background:rgba(200,150,55,0.04)}35%{background:rgba(200,150,55,0.15)}100%{background:rgba(200,150,55,0.04)}}
+#api-counter-widget.api-flashing{animation:api-flash 0.65s ease-out}
+html[data-theme="light"] #api-counter-widget{background:rgba(0,119,181,0.05);border-top-color:rgba(0,119,181,0.2)}
+html[data-theme="light"] .api-ctr-label{color:var(--text)}
+html[data-theme="light"] .api-ctr-track{background:rgba(0,119,181,0.2)}
+html[data-theme="light"] .api-ctr-fill{background:var(--accent)}
+html[data-theme="light"] .api-ctr-value{color:var(--accent)}
+html[data-theme="light"] .api-ctr-sub{color:var(--muted2)}
+
 /* ── Main ── */
 .main{flex:1;overflow-y:auto;padding:22px 26px;background:var(--bg)}
 
@@ -308,8 +329,18 @@ header::after{
 .event-msg strong{color:var(--text)}
 .event-time{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap}
 
+/* ── Sortable table headers ── */
+.ap-table th.sortable{cursor:pointer;user-select:none}
+.ap-table th.sortable:hover{color:var(--accent);background:rgba(200,150,55,0.1)}
+.ap-table th.sortable::after{content:' ↕';opacity:0.3;font-size:9px}
+.ap-table th.sort-asc::after{content:' ↑';opacity:1;color:var(--accent)}
+.ap-table th.sort-desc::after{content:' ↓';opacity:1;color:var(--accent)}
+html[data-theme="light"] .ap-table th.sortable:hover{color:var(--accent2);background:rgba(0,119,181,0.08)}
+html[data-theme="light"] .ap-table th.sort-asc::after,
+html[data-theme="light"] .ap-table th.sort-desc::after{color:var(--accent2)}
+
 /* ── AI chat ── */
-#chat-messages{height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
+#chat-messages{min-height:200px;max-height:65vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
 .chat-bubble{padding:10px 14px;font-size:12px;line-height:1.7;font-family:var(--mono);white-space:pre-wrap;word-break:break-word}
 .chat-user{background:rgba(90,184,216,0.08);border:1px solid rgba(90,184,216,0.2);margin-left:auto;max-width:82%}
 .chat-ai{background:var(--bg3);border:1px solid var(--border);max-width:92%}
@@ -676,6 +707,23 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
     </div>
     <div id="connect-token-section">
       <div class="login-field">
+        <div class="login-label">Cloud Region</div>
+        <select id="connect-cloud" class="login-input" style="appearance:none;-webkit-appearance:none;cursor:pointer">
+          <option value="api.mist.com">Global 01 — api.mist.com</option>
+          <option value="api.gc1.mist.com">Global 02 — api.gc1.mist.com</option>
+          <option value="api.ac2.mist.com">Global 03 — api.ac2.mist.com</option>
+          <option value="api.gc2.mist.com">Global 04 — api.gc2.mist.com</option>
+          <option value="api.gc4.mist.com">Global 05 — api.gc4.mist.com</option>
+          <option value="api.eu.mist.com">EMEA 01 — api.eu.mist.com</option>
+          <option value="api.gc3.mist.com">EMEA 02 — api.gc3.mist.com</option>
+          <option value="api.ac6.mist.com">EMEA 03 — api.ac6.mist.com</option>
+          <option value="api.gc6.mist.com">EMEA 04 — api.gc6.mist.com</option>
+          <option value="api.ac5.mist.com">APAC 01 — api.ac5.mist.com</option>
+          <option value="api.gc5.mist.com">APAC 02 — api.gc5.mist.com</option>
+          <option value="api.gc7.mist.com">APAC 03 — api.gc7.mist.com</option>
+        </select>
+      </div>
+      <div class="login-field">
         <div class="login-label">Mist API Token</div>
         <input id="connect-token" class="login-input" type="password"
           placeholder="Paste your Mist API token"
@@ -725,7 +773,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         Repo
       </a>
-      <div id="api-counter" title="Mist API calls this session" style="display:none;font-family:var(--mono);font-size:10px;color:var(--muted2);padding:4px 8px;border:1px solid var(--border2);letter-spacing:0.06em;white-space:nowrap">API <span id="api-call-count">0</span></div>
+
       <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
       <span id="user-pill"></span>
       <button class="btn btn-danger" onclick="logout()">Sign Out</button>
@@ -805,6 +853,14 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         </div>
       </div>
       <div class="sidebar-spacer"></div>
+      <div id="api-counter-widget">
+        <div class="api-ctr-label">Mist API Call Count</div>
+        <div class="api-ctr-row">
+          <div class="api-ctr-track"><div class="api-ctr-fill" id="api-ctr-fill"></div></div>
+          <span class="api-ctr-value" id="api-ctr-value">0/5000</span>
+        </div>
+        <div class="api-ctr-sub" id="api-ctr-sub">0.0s · this session</div>
+      </div>
       <svg class="sidebar-dunes" viewBox="0 0 210 70" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
         <defs>
           <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
@@ -1336,6 +1392,7 @@ let ORG_ID = sessionStorage.getItem('tat_orgid') || '';
 const SESSION = {
   token: sessionStorage.getItem('tat_token') || null,
   self:  JSON.parse(sessionStorage.getItem('tat_self') || 'null'),
+  host:  sessionStorage.getItem('tat_host') || 'api.mist.com',
 };
 
 let allSites    = [];
@@ -1368,13 +1425,14 @@ function onConnectTokenInput() {
 
 async function doConnect() {
   const token = document.getElementById('connect-token').value.trim();
+  const host  = document.getElementById('connect-cloud').value;
   const err   = document.getElementById('connect-error');
   const btn   = document.getElementById('connect-btn');
   err.textContent = '';
   if (token.length < 20) return;
   btn.disabled = true; btn.className = ''; btn.textContent = 'Connecting...';
   try {
-    const r = await fetch('/api/validate', { headers: { 'X-Mist-Token': token } });
+    const r = await fetch('/api/validate', { headers: { 'X-Mist-Token': token, 'X-Mist-Host': host } });
     const d = await r.json();
     if (r.ok && d.email !== undefined) {
       // Deduplicate privileges by org_id
@@ -1389,9 +1447,10 @@ async function doConnect() {
         return;
       }
       if (privs.length === 1) {
+        _connectPending = { token, selfData: d, privs, host };
         _doSelectOrg(token, d, privs[0]);
       } else {
-        _connectPending = { token, selfData: d, privs };
+        _connectPending = { token, selfData: d, privs, host };
         document.getElementById('connect-token-section').style.display = 'none';
         const list = document.getElementById('connect-org-list');
         list.innerHTML = privs.map((p, i) => `
@@ -1420,8 +1479,10 @@ function _doSelectOrg(token, selfData, priv, idx) {
   }
   ORG_ID = priv.org_id;
   SESSION.token = token;
+  SESSION.host  = _connectPending.host || 'api.mist.com';
   SESSION.self  = { ...selfData, org_id: priv.org_id };
   sessionStorage.setItem('tat_token', token);
+  sessionStorage.setItem('tat_host',  SESSION.host);
   sessionStorage.setItem('tat_orgid', priv.org_id);
   sessionStorage.setItem('tat_self', JSON.stringify(SESSION.self));
   // Reset modal state
@@ -1480,7 +1541,7 @@ async function mist(path, opts = {}) {
   if (!SESSION.token) { logout(); throw new Error('No token'); }
   const r = await fetch('/api/v1' + path, {
     method: opts.method || 'GET',
-    headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token },
+    headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token, 'X-Mist-Host': SESSION.host || '' },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
@@ -1505,6 +1566,8 @@ function startApp() {
   showTab('dashboard');
   setActive(document.querySelector('.nav-item'));
   resetInactivityTimer();
+  _syncApiCounter();
+  setInterval(_syncApiCounter, 15000);
 }
 
 async function loadAll() {
@@ -2018,7 +2081,7 @@ async function sendChat() {
   try {
     const r = await fetch('/api/v1/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '' },
+      headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '', 'X-Mist-Host': SESSION.host || '' },
       body: JSON.stringify({ query, history: chatHistory.slice(-10) }),
     });
     const d = await r.json();
@@ -3030,6 +3093,37 @@ function appendInsightsLog(evt) {
 }
 function clearInsightsLog(){document.getElementById('insights-log').innerHTML='<div style="color:var(--muted);padding:8px 0;font-family:var(--mono);font-size:11px">// Cleared</div>';}
 
+// ── Sortable tables ────────────────────────────────────────────────────────────
+function makeSortable(table) {
+  const ths = table.querySelectorAll('thead th');
+  const tbody = table.querySelector('tbody');
+  if (!ths.length || !tbody) return;
+  let sortCol = -1, sortDir = 1;
+  ths.forEach((th, col) => {
+    th.classList.add('sortable');
+    th.addEventListener('click', () => {
+      sortDir = (sortCol === col) ? -sortDir : 1;
+      sortCol = col;
+      ths.forEach((h, i) => {
+        h.classList.remove('sort-asc', 'sort-desc');
+        if (i === col) h.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+      });
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      if (rows.length < 2) return;
+      rows.sort((a, b) => {
+        const aVal = a.cells[col]?.textContent.trim() ?? '';
+        const bVal = b.cells[col]?.textContent.trim() ?? '';
+        const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
+        return (!isNaN(aNum) && !isNaN(bNum))
+          ? (aNum - bNum) * sortDir
+          : aVal.localeCompare(bVal) * sortDir;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+}
+document.querySelectorAll('.ap-table').forEach(makeSortable);
+
 // ── Keyboard shortcuts ─────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openTshoot(); }
@@ -3072,7 +3166,7 @@ async function runSelfDrivingScan() {
   // Background L1-only scan — seeds dashboard event feed without blocking UI
   try {
     const r = await fetch('/api/v1/orgs/' + ORG_ID + '/self-driving/scan', {
-      headers: { 'X-Mist-Token': SESSION.token || '' },
+      headers: { 'X-Mist-Token': SESSION.token || '', 'X-Mist-Host': SESSION.host || '' },
     });
     const d = await r.json();
     if (d.issues_found > 0) {
@@ -3087,7 +3181,7 @@ async function runSelfDrivingScan() {
 async function runSelfDrivingPipeline() {
   const btn    = document.getElementById('sd-run-btn');
   const dryRun = document.getElementById('sd-dryrun').checked;
-  const hdr    = { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '' };
+  const hdr    = { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '', 'X-Mist-Host': SESSION.host || '' };
   btn.disabled = true;
   btn.textContent = '⟳ Running...';
 
@@ -3363,15 +3457,52 @@ function injectPipelineEvents(issues, diagnoses, actions) {
 }
 
 // ── API call counter ───────────────────────────────────────────────────────────
+const API_CALL_LIMIT = 5000;
 let _apiCallCount = 0;
+let _apiTotalSecs  = 0;
+let _apiFlashTimer = null;
+
+function _renderApiWidget(count, secs) {
+  const widget = document.getElementById('api-counter-widget');
+  if (!widget) return;
+  widget.style.display = '';
+
+  const pct  = Math.min(count / API_CALL_LIMIT * 100, 100);
+  const tier = count >= API_CALL_LIMIT * 0.8 ? 'danger' : count >= API_CALL_LIMIT * 0.5 ? 'warn' : '';
+
+  const fill = document.getElementById('api-ctr-fill');
+  if (fill) { fill.style.width = pct + '%'; fill.className = 'api-ctr-fill' + (tier ? ' ' + tier : ''); }
+
+  const val = document.getElementById('api-ctr-value');
+  if (val) { val.textContent = count + '/' + API_CALL_LIMIT; val.className = 'api-ctr-value' + (tier ? ' ' + tier : ''); }
+
+  const sub = document.getElementById('api-ctr-sub');
+  if (sub) sub.textContent = (secs !== undefined ? secs.toFixed(1) : _apiTotalSecs.toFixed(1)) + 's · this session';
+
+  // Subtle flash on each update
+  clearTimeout(_apiFlashTimer);
+  widget.classList.remove('api-flashing');
+  requestAnimationFrame(() => {
+    widget.classList.add('api-flashing');
+    _apiFlashTimer = setTimeout(() => widget.classList.remove('api-flashing'), 700);
+  });
+}
+
 function _incrementApiCounter() {
   _apiCallCount++;
-  const el = document.getElementById('api-call-count');
-  if (el) el.textContent = _apiCallCount;
-  const pill = document.getElementById('api-counter');
-  if (pill) pill.style.display = 'flex';
+  _renderApiWidget(_apiCallCount);
 }
-// Patch mist() to count calls — done by wrapping after definition
+
+async function _syncApiCounter() {
+  try {
+    const d = await (await fetch('/api/v1/usage')).json();
+    if ((d.mist_api_calls || 0) > _apiCallCount) _apiCallCount = d.mist_api_calls;
+    _apiTotalSecs = d.total_seconds || _apiTotalSecs;
+    _renderApiWidget(_apiCallCount, _apiTotalSecs);
+  } catch(_) {}
+}
+
+// Patch mist() to count calls
 const _origMist = mist;
 window.mist = async function(path, opts={}) {
   _incrementApiCounter();
