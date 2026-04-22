@@ -39,7 +39,7 @@ A single-page app with 13 tabs covering every layer of the network:
 | **WLANs** | Org-level WLAN inventory |
 | **Switches** | Switch fleet with PoE stats and port details |
 | → Connected Clients | Wired clients per site (`/wired_clients/search`) |
-| **WAN / Gateways** | Gateway fleet with live WAN interface status |
+| **WAN / Gateways** | Gateway fleet with live WAN interface status + device event feed (last 24h) |
 | **Access Assurance** | NAC rules — 802.1X, MAB, PSK |
 | → Connected Clients | NAC-authenticated clients (`/nac_clients/search`) |
 | **Self-Driving Pipeline** | L1→L2→L3 UI with progressive rendering and dry-run toggle |
@@ -68,14 +68,29 @@ A single-page app with 13 tabs covering every layer of the network:
 
 | Component | Technology |
 |-----------|-----------|
-| Frontend | Single-file HTML/CSS/JS — KRAYT TERMINAL dark theme + Juniper blue light mode |
+| Frontend | Single-file HTML/CSS/JS — light mode default, KRAYT TERMINAL dark theme toggle |
 | Backend | Python 3.11 + Flask + gunicorn (1 worker, 8 threads) |
 | AI | Anthropic Claude `claude-sonnet-4-6` |
-| Automation | n8n (self-hosted, Cloudflare tunneled) |
+| Automation | n8n cloud (`thewifijedi.app.n8n.cloud`) |
 | Real-time | WebSocket server (port 8765) + SSE stream |
 | Data | PostgreSQL + Redis |
 | Proxy | nginx + Cloudflare Tunnel |
 | Fonts | Cinzel · Open Sans · Space Mono |
+
+---
+
+## n8n AI Ops
+
+Mist webhooks are relayed through Tatooine to n8n cloud for async Claude analysis:
+
+```
+Mist Cloud → POST /webhook/mist (Tatooine relay)
+           → https://thewifijedi.app.n8n.cloud/webhook/mist-events
+           → Claude analyzes high-priority alarms
+           → POST /webhook/n8n/analysis (callback to dashboard)
+```
+
+Workflow: [thewifijedi.app.n8n.cloud/workflow/hYqXcIroggeg61BL](https://thewifijedi.app.n8n.cloud/workflow/hYqXcIroggeg61BL)
 
 ---
 
@@ -87,6 +102,9 @@ GET /sites/:id/stats/devices?type=ap
 GET /sites/:id/stats/devices?type=switch
 GET /sites/:id/stats/devices?type=gateway
 GET /sites/:id/stats/devices/:device_id?type=ap|switch|gateway
+
+# WAN device events
+GET /sites/:id/devices/events/search?mac=<mac>&duration=1d
 
 # Clients
 GET /sites/:id/stats/clients              wireless
@@ -115,6 +133,18 @@ POST /sites/:id/devices/:id/reboot
 
 ---
 
+## Security
+
+| Header | Value |
+|--------|-------|
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+| `Content-Security-Policy` | `default-src 'self'` + scoped directives, no `unsafe-eval` |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `SAMEORIGIN` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+
+---
+
 ## Deployment
 
 ```bash
@@ -132,6 +162,7 @@ docker compose up -d
 | `MIST_API_TOKEN` | Yes | Juniper Mist API token |
 | `ANTHROPIC_API_KEY` | Yes | Anthropic Claude API key |
 | `MIST_ORG_ID` | No | Default org (overridden by token auth) |
+| `N8N_URL` | No | n8n instance URL (default: `https://thewifijedi.app.n8n.cloud`) |
 | `REDIS_URL` | No | Redis connection (default: in-memory) |
 | `DATABASE_URL` | No | PostgreSQL connection URL |
 
@@ -139,10 +170,8 @@ docker compose up -d
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `nginx` | 8080 | Reverse proxy |
+| `nginx` | 8080 | Reverse proxy + security headers |
 | `mist-api` | 8000 | Flask/gunicorn backend |
-| `websocket` | 8765 | Real-time push server |
-| `n8n` | 5678 | Workflow automation |
 | `postgres` | 5432 | Database |
 | `redis` | 6379 | Cache / rate limiting |
 | `cloudflared` | — | Cloudflare Tunnel |
@@ -155,26 +184,17 @@ Token-only — paste a Mist API token and org privileges are derived from `/self
 
 ---
 
-## n8n Automation
-
-A Cloudflare-tunneled n8n instance handles asynchronous AI ops:
-
-- Receives Mist webhooks at `/webhook/mist`
-- Calls Claude for event analysis
-- Posts results back to the dashboard via `/webhook/n8n/analysis`
-- Triggers self-driving pipeline runs on configurable alert conditions
-
----
-
 ## Project Structure
 
 ```
-├── app.py              Flask backend — 50+ routes, self-driving pipeline, n8n bridge
+├── app.py                              Flask backend — 50+ routes, self-driving pipeline, n8n bridge
 ├── static/
-│   └── index.html      Single-page dashboard (all UI, themes, JS)
-├── websocket_server.py Real-time WebSocket push server
-├── docker-compose.yml  Full stack orchestration
-├── nginx.conf          Reverse proxy + WebSocket support
-├── Dockerfile          mist-api container
-└── n8n.json            n8n workflow export
+│   └── index.html                      Single-page dashboard (all UI, themes, JS)
+├── websocket_server.py                 Real-time WebSocket push server
+├── docker-compose.yml                  Stack: nginx, gunicorn, postgres, redis, cloudflared
+├── nginx.conf                          Reverse proxy + security headers
+├── Dockerfile                          mist-api container
+├── requirements.txt                    Direct dependencies
+├── requirements.lock                   Fully pinned transitive dependencies
+└── Mist AI Ops — Claude + Webhooks.json  n8n workflow export
 ```
