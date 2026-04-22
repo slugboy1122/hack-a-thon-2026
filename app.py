@@ -776,8 +776,9 @@ def ws_status():
 def n8n_status():
     """Ping n8n and return reachability."""
     try:
-        r = requests.get(f'{N8N_URL}/healthz', timeout=3)
-        return jsonify({'reachable': True, 'http_status': r.status_code, 'url': N8N_URL})
+        # n8n cloud health endpoint
+        r = requests.get(f'{N8N_URL}/healthz', timeout=5)
+        return jsonify({'reachable': r.status_code < 500, 'http_status': r.status_code, 'url': N8N_URL})
     except Exception as e:
         return jsonify({'reachable': False, 'error': str(e), 'url': N8N_URL}), 200
 
@@ -826,7 +827,10 @@ def n8n_action():
             params=body,
             timeout=40,
         )
-        return mist_json(r)
+        try:
+            return jsonify(r.json())
+        except ValueError:
+            return jsonify({'error': f'n8n returned non-JSON (HTTP {r.status_code})', 'body': r.text[:200]}), 502
     except requests.Timeout:
         return jsonify({'error': 'n8n timeout — workflow did not respond in 40 s'}), 504
     except Exception as e:
