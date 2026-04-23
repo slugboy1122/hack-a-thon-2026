@@ -664,8 +664,8 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
     <div class="lp-card c-dim">
       <div class="lp-card-icon">⬡</div>
       <div class="lp-card-level">Automation</div>
-      <div class="lp-card-title">n8n AI Ops Workflow</div>
-      <div class="lp-card-body">Mist webhooks trigger Claude analysis via n8n cloud. Results callback to the live dashboard in real time.</div>
+      <div class="lp-card-title">AI Ops Pipeline</div>
+      <div class="lp-card-body">Mist webhooks trigger Claude analysis via Cloudflare Workflows. Results push to the live dashboard in real time over WebSocket.</div>
     </div>
     <div class="lp-card c-dim">
       <div class="lp-card-icon">≡</div>
@@ -701,28 +701,32 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         <div class="connect-sub">Tatooine · Mist Network Intelligence</div>
       </div>
     </div>
-    <div class="connect-desc">
-      Enter your Mist API token. Org access and permissions<br>
-      are derived automatically from your token's privileges.
+    <div style="display:flex;gap:0;margin-bottom:18px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+      <button id="auth-tab-token" onclick="setAuthMode('token')" style="flex:1;padding:7px 0;font-family:var(--mono);font-size:11px;border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:600">API Token</button>
+      <button id="auth-tab-login" onclick="setAuthMode('login')" style="flex:1;padding:7px 0;font-family:var(--mono);font-size:11px;border:none;cursor:pointer;background:var(--bg3);color:var(--muted2);font-weight:400">Email / Password</button>
     </div>
+
+    <!-- Cloud region shared by both modes -->
+    <div class="login-field">
+      <div class="login-label">Cloud Region</div>
+      <select id="connect-cloud" class="login-input" style="appearance:none;-webkit-appearance:none;cursor:pointer">
+        <option value="api.mist.com">Global 01 — api.mist.com</option>
+        <option value="api.gc1.mist.com">Global 02 — api.gc1.mist.com</option>
+        <option value="api.ac2.mist.com">Global 03 — api.ac2.mist.com</option>
+        <option value="api.gc2.mist.com">Global 04 — api.gc2.mist.com</option>
+        <option value="api.gc4.mist.com">Global 05 — api.gc4.mist.com</option>
+        <option value="api.eu.mist.com">EMEA 01 — api.eu.mist.com</option>
+        <option value="api.gc3.mist.com">EMEA 02 — api.gc3.mist.com</option>
+        <option value="api.ac6.mist.com">EMEA 03 — api.ac6.mist.com</option>
+        <option value="api.gc6.mist.com">EMEA 04 — api.gc6.mist.com</option>
+        <option value="api.ac5.mist.com">APAC 01 — api.ac5.mist.com</option>
+        <option value="api.gc5.mist.com">APAC 02 — api.gc5.mist.com</option>
+        <option value="api.gc7.mist.com">APAC 03 — api.gc7.mist.com</option>
+      </select>
+    </div>
+
+    <!-- Token mode -->
     <div id="connect-token-section">
-      <div class="login-field">
-        <div class="login-label">Cloud Region</div>
-        <select id="connect-cloud" class="login-input" style="appearance:none;-webkit-appearance:none;cursor:pointer">
-          <option value="api.mist.com">Global 01 — api.mist.com</option>
-          <option value="api.gc1.mist.com">Global 02 — api.gc1.mist.com</option>
-          <option value="api.ac2.mist.com">Global 03 — api.ac2.mist.com</option>
-          <option value="api.gc2.mist.com">Global 04 — api.gc2.mist.com</option>
-          <option value="api.gc4.mist.com">Global 05 — api.gc4.mist.com</option>
-          <option value="api.eu.mist.com">EMEA 01 — api.eu.mist.com</option>
-          <option value="api.gc3.mist.com">EMEA 02 — api.gc3.mist.com</option>
-          <option value="api.ac6.mist.com">EMEA 03 — api.ac6.mist.com</option>
-          <option value="api.gc6.mist.com">EMEA 04 — api.gc6.mist.com</option>
-          <option value="api.ac5.mist.com">APAC 01 — api.ac5.mist.com</option>
-          <option value="api.gc5.mist.com">APAC 02 — api.gc5.mist.com</option>
-          <option value="api.gc7.mist.com">APAC 03 — api.gc7.mist.com</option>
-        </select>
-      </div>
       <div class="login-field">
         <div class="login-label">Mist API Token</div>
         <input id="connect-token" class="login-input" type="password"
@@ -732,13 +736,48 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
       </div>
       <button id="connect-btn" onclick="doConnect()" disabled>Connect →</button>
     </div>
+
+    <!-- Email/password mode -->
+    <div id="connect-login-section" style="display:none">
+      <div class="login-field">
+        <div class="login-label">Email</div>
+        <input id="connect-email" class="login-input" type="email"
+          placeholder="you@example.com"
+          oninput="onLoginInput()"
+          onkeydown="if(event.key==='Enter')doLoginConnect()">
+      </div>
+      <div class="login-field">
+        <div class="login-label">Password</div>
+        <input id="connect-password" class="login-input" type="password"
+          placeholder="Mist password"
+          oninput="onLoginInput()"
+          onkeydown="if(event.key==='Enter')doLoginConnect()">
+      </div>
+      <button id="login-btn" onclick="doLoginConnect()" disabled>Sign In →</button>
+    </div>
+
+    <!-- 2FA prompt (shown over either mode after login) -->
+    <div id="connect-2fa-section" style="display:none">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted2);margin-bottom:14px">Two-factor authentication is required for your account.</div>
+      <div class="login-field">
+        <div class="login-label">Authenticator Code</div>
+        <input id="connect-2fa" class="login-input" type="text"
+          placeholder="6-digit code" maxlength="6" inputmode="numeric"
+          onkeydown="if(event.key==='Enter')doTwoFactor()">
+      </div>
+      <button id="tfa-btn" onclick="doTwoFactor()">Verify →</button>
+    </div>
+
     <div id="connect-org-picker" style="display:none">
       <div class="login-label" style="margin-bottom:10px">Select Organization</div>
       <div id="connect-org-list"></div>
     </div>
     <div id="connect-error"></div>
-    <div class="connect-footer">
+    <div class="connect-footer" id="connect-footer-token">
       API token: <a href="https://manage.mist.com/user.html#!api" target="_blank">manage.mist.com → My Profile → API Token</a>
+    </div>
+    <div class="connect-footer" id="connect-footer-login" style="display:none">
+      Uses your Mist Cloud login credentials. 2FA is supported.
     </div>
   </div>
 </div>
@@ -842,7 +881,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           <span class="nav-badge danger" id="badge-sd-issues" style="display:none">0</span>
         </div>
         <div class="nav-item" onclick="showTab('n8n');setActive(this)">
-          <span class="nav-icon">⚡</span><span class="nav-label">n8n AI Ops</span>
+          <span class="nav-icon">⚡</span><span class="nav-label">AI Ops</span>
           <span class="nav-badge info" id="badge-n8n">—</span>
         </div>
       </div>
@@ -1129,8 +1168,8 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
       <div id="tab-n8n" class="tab-content">
         <div class="section-header">
           <div>
-            <div class="section-title">n8n AI Ops</div>
-            <div class="section-sub">Claude + Webhooks at <span style="font-family:var(--mono);color:var(--accent2)" id="n8n-url-label"></span></div>
+            <div class="section-title">AI Ops</div>
+            <div class="section-sub">Cloudflare Workflows · Claude alarm analysis · WebSocket push</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <span id="ws-live-status" style="font-family:var(--mono);font-size:11px;color:var(--muted2)">○ WS</span>
@@ -1139,34 +1178,31 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         </div>
         <div class="grid-2" style="margin-bottom:16px">
           <div class="card">
-            <div class="card-header"><span class="card-title">Workflow Status</span></div>
+            <div class="card-header"><span class="card-title">Pipeline Status</span><span style="font-family:var(--mono);font-size:9px;color:var(--ok)">CLOUDFLARE WORKFLOWS</span></div>
             <div class="card-body" id="n8n-status-body">
-              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted2)">Checking n8n...</span>
+              <span class="spinner-sm"></span><span style="font-family:var(--mono);font-size:11px;color:var(--muted2)">Checking...</span>
             </div>
           </div>
           <div class="card">
-            <div class="card-header">
-              <span class="card-title">Mist Webhook Config</span>
-              <a href="https://thewifijedi.app.n8n.cloud/workflow/hxdPp1YOKcS13L7d" target="_blank" rel="noopener" class="portal-link">Open Workflow ↗</a>
-            </div>
+            <div class="card-header"><span class="card-title">Mist Webhook Config</span></div>
             <div class="card-body" style="padding:12px 16px">
               <div style="margin-bottom:10px">
-                <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Production <span style="color:var(--ok)">● LIVE</span></div>
-                <div id="n8n-webhook-url" style="font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl('n8n-webhook-url')" title="Click to copy"></div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Webhook Endpoint <span style="color:var(--ok)">● LIVE</span></div>
+                <div id="n8n-relay-url" style="font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--bg3);border:1px solid var(--border);padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl('n8n-relay-url')" title="Click to copy"></div>
               </div>
               <div style="margin-bottom:10px">
-                <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Test <span style="color:var(--warn)">● TEST</span></div>
-                <div id="n8n-test-url" style="font-family:var(--mono);font-size:11px;color:var(--warn);background:var(--bg3);border:1px solid var(--border);padding:8px 12px;cursor:pointer;word-break:break-all" onclick="copyWebhookUrl('n8n-test-url')" title="Click to copy"></div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Topics</div>
+                <div style="font-family:var(--mono);font-size:11px;color:var(--text);background:var(--bg3);border:1px solid var(--border);padding:8px 12px">alarms · device-events · client-events · audits</div>
               </div>
               <div>
-                <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Tatooine Relay</div>
-                <div id="n8n-relay-url" style="font-family:var(--mono);font-size:11px;color:var(--muted2);background:var(--bg3);border:1px solid var(--border);padding:8px 12px;word-break:break-all;cursor:pointer" onclick="copyWebhookUrl('n8n-relay-url')" title="Click to copy"></div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Pipeline</div>
+                <div style="font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);padding:8px 12px">mist-event-pipeline · 4-step durable workflow</div>
               </div>
             </div>
           </div>
         </div>
         <div class="card" style="margin-bottom:16px">
-          <div class="card-header"><span class="card-title">Quick Actions</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)">ROUTED VIA n8n</span></div>
+          <div class="card-header"><span class="card-title">Quick Actions</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)">CLOUDFLARE WORKER</span></div>
           <div class="card-body" style="padding:12px 16px">
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
               <button class="btn" onclick="n8nAction('get_sites')" style="font-size:12px">◈ Get Sites</button>
@@ -1181,11 +1217,11 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         <div class="card" style="margin-bottom:16px">
           <div class="card-header">
             <span class="card-title">Claude Analyses</span>
-            <span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="n8n-analyses-stamp">FROM n8n HIGH-PRIORITY EVENTS</span>
+            <span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="n8n-analyses-stamp">FROM HIGH-PRIORITY MIST EVENTS</span>
           </div>
           <div class="card-body" style="padding:8px 16px">
             <div id="n8n-analyses-body" style="font-family:var(--mono);font-size:11px;color:var(--muted2)">
-              // No analyses yet — high-priority Mist events trigger Claude via n8n
+              // No analyses yet — high-priority Mist alarms trigger Claude via the Workflows pipeline
             </div>
           </div>
         </div>
@@ -1196,7 +1232,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           </div>
           <div class="card-body" style="padding:8px 16px">
             <div class="event-log" id="n8n-events-body" style="max-height:280px">
-              <div style="font-family:var(--mono);font-size:11px;color:var(--muted2);padding:8px 0">// No events yet — configure Mist webhooks to the URL above</div>
+              <div style="font-family:var(--mono);font-size:11px;color:var(--muted2);padding:8px 0">// No events yet — configure Mist webhooks to POST to the endpoint above</div>
             </div>
           </div>
         </div>
@@ -1390,9 +1426,10 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
 // ══ SESSION ════════════════════════════════════════════════════════════════════
 let ORG_ID = sessionStorage.getItem('tat_orgid') || '';
 const SESSION = {
-  token: sessionStorage.getItem('tat_token') || null,
-  self:  JSON.parse(sessionStorage.getItem('tat_self') || 'null'),
-  host:  sessionStorage.getItem('tat_host') || 'api.mist.com',
+  token:   sessionStorage.getItem('tat_token') || null,
+  session: sessionStorage.getItem('tat_session') || null, // email/password login session cookie
+  self:    JSON.parse(sessionStorage.getItem('tat_self') || 'null'),
+  host:    sessionStorage.getItem('tat_host') || 'api.mist.com',
 };
 
 let allSites    = [];
@@ -1403,12 +1440,33 @@ let chatHistory = [];
 let tshootType = 'wireless';
 
 // ── Connect modal ──────────────────────────────────────────────────────────────
-let _connectPending = { token: null, selfData: null, privs: [] };
+let _connectPending = { token: null, session: null, selfData: null, privs: [], host: null };
+let _authMode = 'token';
+
+function setAuthMode(mode) {
+  _authMode = mode;
+  const isToken = mode === 'token';
+  document.getElementById('connect-token-section').style.display  = isToken ? '' : 'none';
+  document.getElementById('connect-login-section').style.display  = isToken ? 'none' : '';
+  document.getElementById('connect-footer-token').style.display   = isToken ? '' : 'none';
+  document.getElementById('connect-footer-login').style.display   = isToken ? 'none' : '';
+  document.getElementById('auth-tab-token').style.background  = isToken ? 'var(--accent)' : 'var(--bg3)';
+  document.getElementById('auth-tab-token').style.color       = isToken ? '#fff' : 'var(--muted2)';
+  document.getElementById('auth-tab-token').style.fontWeight  = isToken ? '600' : '400';
+  document.getElementById('auth-tab-login').style.background  = isToken ? 'var(--bg3)' : 'var(--accent)';
+  document.getElementById('auth-tab-login').style.color       = isToken ? 'var(--muted2)' : '#fff';
+  document.getElementById('auth-tab-login').style.fontWeight  = isToken ? '400' : '600';
+  document.getElementById('connect-error').textContent = '';
+  if (isToken) setTimeout(() => document.getElementById('connect-token').focus(), 60);
+  else setTimeout(() => document.getElementById('connect-email').focus(), 60);
+}
 
 function openConnectModal() {
   document.getElementById('connect-modal').classList.add('open');
   document.getElementById('connect-error').textContent = '';
-  setTimeout(() => document.getElementById('connect-token').focus(), 80);
+  document.getElementById('connect-2fa-section').style.display = 'none';
+  document.getElementById('connect-org-picker').style.display = 'none';
+  setAuthMode(_authMode);
 }
 
 function closeConnectModal() {
@@ -1421,6 +1479,104 @@ function onConnectTokenInput() {
   const ready = tok.length > 20;
   btn.disabled = !ready;
   btn.className = ready ? 'ready' : '';
+}
+
+function onLoginInput() {
+  const email = document.getElementById('connect-email').value.trim();
+  const pass  = document.getElementById('connect-password').value;
+  const btn   = document.getElementById('login-btn');
+  const ready = email.includes('@') && pass.length > 0;
+  btn.disabled = !ready;
+  btn.className = ready ? 'ready' : '';
+}
+
+async function doLoginConnect() {
+  const email    = document.getElementById('connect-email').value.trim();
+  const password = document.getElementById('connect-password').value;
+  const host     = document.getElementById('connect-cloud').value;
+  const err      = document.getElementById('connect-error');
+  const btn      = document.getElementById('login-btn');
+  err.textContent = '';
+  btn.disabled = true; btn.className = ''; btn.textContent = 'Signing in...';
+  try {
+    const r = await fetch('/api/v1/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Mist-Host': host },
+      body: JSON.stringify({ email, password }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      err.textContent = d.error || 'Login failed — check your credentials.';
+      btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
+      return;
+    }
+    _connectPending = { token: null, session: d.session, selfData: d, privs: d.privileges, host };
+    if (d.two_factor_required) {
+      document.getElementById('connect-login-section').style.display = 'none';
+      document.getElementById('connect-2fa-section').style.display = '';
+      setTimeout(() => document.getElementById('connect-2fa').focus(), 60);
+      btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
+      return;
+    }
+    _finishLogin(d);
+  } catch(e) {
+    err.textContent = 'Connection error: ' + e.message;
+    btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
+  }
+}
+
+async function doTwoFactor() {
+  const code = document.getElementById('connect-2fa').value.trim();
+  const err  = document.getElementById('connect-error');
+  const btn  = document.getElementById('tfa-btn');
+  if (!code) return;
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Verifying...';
+  try {
+    const r = await fetch('/api/v1/login/two_factor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Mist-Session': _connectPending.session, 'X-Mist-Host': _connectPending.host || '' },
+      body: JSON.stringify({ two_factor: code }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      err.textContent = d.error || 'Invalid code — try again.';
+      btn.disabled = false; btn.textContent = 'Verify →';
+      document.getElementById('connect-2fa').value = '';
+      return;
+    }
+    _finishLogin(d);
+  } catch(e) {
+    err.textContent = 'Verification error: ' + e.message;
+    btn.disabled = false; btn.textContent = 'Verify →';
+  }
+}
+
+function _finishLogin(d) {
+  const privs = (() => {
+    const m = new Map();
+    for (const p of (d.privileges || [])) if (p.org_id && !m.has(p.org_id)) m.set(p.org_id, p);
+    return [...m.values()];
+  })();
+  if (!privs.length) {
+    document.getElementById('connect-error').textContent = 'No org access found for this account.';
+    return;
+  }
+  _connectPending = { ..._connectPending, selfData: d, privs };
+  if (privs.length === 1) {
+    _doSelectOrg(null, d, privs[0]);
+  } else {
+    document.getElementById('connect-login-section').style.display = 'none';
+    document.getElementById('connect-2fa-section').style.display = 'none';
+    const list = document.getElementById('connect-org-list');
+    list.innerHTML = privs.map((p, i) => `
+      <div class="org-option" onclick="_doSelectOrg(null,null,null,${i})">
+        <div class="org-option-name">${p.name || 'Organization'}</div>
+        <div class="org-option-id">${p.org_id}</div>
+        <div class="org-option-role">${p.role || 'member'}</div>
+      </div>`).join('');
+    document.getElementById('connect-org-picker').style.display = '';
+  }
 }
 
 async function doConnect() {
@@ -1477,18 +1633,27 @@ function _doSelectOrg(token, selfData, priv, idx) {
     selfData = _connectPending.selfData;
     priv     = _connectPending.privs[idx];
   }
+  const session = _connectPending.session || null;
   ORG_ID = priv.org_id;
-  SESSION.token = token;
-  SESSION.host  = _connectPending.host || 'api.mist.com';
-  SESSION.self  = { ...selfData, org_id: priv.org_id };
-  sessionStorage.setItem('tat_token', token);
+  SESSION.token   = token;
+  SESSION.session = session;
+  SESSION.host    = _connectPending.host || 'api.mist.com';
+  SESSION.self    = { ...selfData, org_id: priv.org_id };
+  if (token)   sessionStorage.setItem('tat_token',   token);
+  else         sessionStorage.removeItem('tat_token');
+  if (session) sessionStorage.setItem('tat_session', session);
+  else         sessionStorage.removeItem('tat_session');
   sessionStorage.setItem('tat_host',  SESSION.host);
   sessionStorage.setItem('tat_orgid', priv.org_id);
-  sessionStorage.setItem('tat_self', JSON.stringify(SESSION.self));
+  sessionStorage.setItem('tat_self',  JSON.stringify(SESSION.self));
   // Reset modal state
   document.getElementById('connect-token-section').style.display = '';
-  document.getElementById('connect-org-picker').style.display = 'none';
+  document.getElementById('connect-login-section').style.display = 'none';
+  document.getElementById('connect-2fa-section').style.display   = 'none';
+  document.getElementById('connect-org-picker').style.display    = 'none';
   document.getElementById('connect-token').value = '';
+  document.getElementById('connect-email').value = '';
+  document.getElementById('connect-password').value = '';
   document.getElementById('connect-btn').disabled = true;
   document.getElementById('connect-btn').className = '';
   document.getElementById('connect-btn').textContent = 'Connect →';
@@ -1519,10 +1684,14 @@ function toggleTheme() {
 })();
 
 function logout() {
+  if (SESSION.session) {
+    fetch('/api/v1/logout', { method: 'POST', headers: { 'X-Mist-Session': SESSION.session, 'X-Mist-Host': SESSION.host || '' } }).catch(() => {});
+  }
   sessionStorage.removeItem('tat_token');
+  sessionStorage.removeItem('tat_session');
   sessionStorage.removeItem('tat_self');
   sessionStorage.removeItem('tat_orgid');
-  SESSION.token = null; SESSION.self = null; ORG_ID = '';
+  SESSION.token = null; SESSION.session = null; SESSION.self = null; ORG_ID = '';
   document.getElementById('app-shell').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   // Reset connect modal
@@ -1536,12 +1705,22 @@ function logout() {
   _connectPending = { token: null, selfData: null, privs: [] };
 }
 
+// ── Auth headers helper ────────────────────────────────────────────────────────
+function authHeaders() {
+  return SESSION.token
+    ? { 'X-Mist-Token': SESSION.token, 'X-Mist-Host': SESSION.host || '' }
+    : { 'X-Mist-Session': SESSION.session || '', 'X-Mist-Host': SESSION.host || '' };
+}
+
 // ── API proxy ──────────────────────────────────────────────────────────────────
 async function mist(path, opts = {}) {
-  if (!SESSION.token) { logout(); throw new Error('No token'); }
+  if (!SESSION.token && !SESSION.session) { logout(); throw new Error('Not authenticated'); }
+  const authHeaders = SESSION.token
+    ? { 'X-Mist-Token': SESSION.token }
+    : { 'X-Mist-Session': SESSION.session };
   const r = await fetch('/api/v1' + path, {
     method: opts.method || 'GET',
-    headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token, 'X-Mist-Host': SESSION.host || '' },
+    headers: { 'Content-Type': 'application/json', 'X-Mist-Host': SESSION.host || '', ...authHeaders },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
@@ -2081,7 +2260,7 @@ async function sendChat() {
   try {
     const r = await fetch('/api/v1/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '', 'X-Mist-Host': SESSION.host || '' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ query, history: chatHistory.slice(-10) }),
     });
     const d = await r.json();
@@ -2179,17 +2358,11 @@ function renderTshootResult(d, mac, query) {
     </div>`;
 }
 
-// ── n8n AI Ops ─────────────────────────────────────────────────────────────────
-const N8N_BASE        = 'https://thewifijedi.app.n8n.cloud';
-const N8N_PROD_HOOK   = N8N_BASE + '/webhook/mist-events';
-const N8N_TEST_HOOK   = N8N_BASE + '/webhook-test/mist-events';
-const WEBHOOK_HOST    = window.location.origin;
+// ── AI Ops ─────────────────────────────────────────────────────────────────────
+const WEBHOOK_HOST = window.location.origin;
 
 async function loadN8n() {
-  document.getElementById('n8n-url-label').textContent = N8N_BASE;
-  document.getElementById('n8n-webhook-url').textContent = N8N_PROD_HOOK;
-  document.getElementById('n8n-test-url').textContent   = N8N_TEST_HOOK;
-  document.getElementById('n8n-relay-url').textContent  = WEBHOOK_HOST + '/webhook/mist';
+  document.getElementById('n8n-relay-url').textContent = WEBHOOK_HOST + '/webhook/mist';
   await Promise.all([checkN8nStatus(), loadN8nAnalyses(), loadN8nEvents()]);
 }
 
@@ -2197,29 +2370,31 @@ async function checkN8nStatus() {
   const body = document.getElementById('n8n-status-body');
   try {
     const d = await (await fetch('/api/n8n/status')).json();
-    const dot = d.reachable ? 'var(--ok)' : 'var(--danger)';
-    const label = d.reachable ? 'REACHABLE' : 'UNREACHABLE';
+    const ws = await (await fetch('/api/ws/status')).json();
     body.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0"></div>
-        <span style="font-family:var(--mono);font-size:12px;color:${dot}">${label}</span>
-        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${N8N_BASE}</span>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-family:var(--mono);font-size:10px;margin-bottom:10px">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="color:var(--muted);margin-bottom:3px">PIPELINE</div>
+          <div style="color:var(--ok)">${d.workflow}</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="color:var(--muted);margin-bottom:3px">WS CLIENTS</div>
+          <div style="color:var(--accent2)">${ws.connected_clients ?? '—'}</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="color:var(--muted);margin-bottom:3px">EVENTS BUFFERED</div>
+          <div style="color:var(--text)">${ws.events_buffered ?? '—'}</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+          <div style="color:var(--muted);margin-bottom:3px">ANALYSES BUFFERED</div>
+          <div style="color:var(--text)">${ws.analyses_buffered ?? '—'}</div>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-family:var(--mono);font-size:10px">
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
-          <div style="color:var(--muted);margin-bottom:3px">MIST EVENTS</div>
-          <div style="color:var(--accent2)">/webhook/mist-events</div>
-        </div>
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
-          <div style="color:var(--muted);margin-bottom:3px">CHAT</div>
-          <div style="color:var(--accent2)">/webhook/mist-chat</div>
-        </div>
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
-          <div style="color:var(--muted);margin-bottom:3px">API PROXY</div>
-          <div style="color:var(--accent2)">/webhook/mist-api</div>
-        </div>
-      </div>
-      ${!d.reachable ? `<div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--danger)">// ${d.error}</div>` : ''}`;
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0"></div>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--ok)">RUNNING</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${d.provider}</span>
+      </div>`;
   } catch(e) {
     body.innerHTML = `<span style="font-family:var(--mono);font-size:11px;color:var(--danger)">// Status check failed: ${e.message}</span>`;
   }
@@ -2232,7 +2407,7 @@ async function loadN8nAnalyses() {
     const items = await (await fetch('/api/n8n/analyses')).json();
     document.getElementById('badge-n8n').textContent = items.length || '0';
     if (!items.length) {
-      body.innerHTML = '<div style="padding:8px 0">// No analyses yet — high-priority Mist events trigger Claude via n8n</div>';
+      body.innerHTML = '<div style="padding:8px 0">// No analyses yet — high-priority Mist alarms trigger Claude via the Workflows pipeline</div>';
       return;
     }
     stamp.textContent = items.length + ' ANALYSES';
@@ -2287,11 +2462,11 @@ async function n8nAction(action, extra = {}) {
   const resultEl = document.getElementById('n8n-action-result');
   resultEl.style.display = 'block';
   resultEl.style.color = 'var(--muted)';
-  resultEl.textContent = `// Calling n8n action: ${action}...`;
+  resultEl.textContent = `// Calling action: ${action}...`;
   try {
     const r = await fetch('/api/n8n/action', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ action, org_id: ORG_ID, ...extra }),
     });
     const d = await r.json();
@@ -3166,7 +3341,7 @@ async function runSelfDrivingScan() {
   // Background L1-only scan — seeds dashboard event feed without blocking UI
   try {
     const r = await fetch('/api/v1/orgs/' + ORG_ID + '/self-driving/scan', {
-      headers: { 'X-Mist-Token': SESSION.token || '', 'X-Mist-Host': SESSION.host || '' },
+      headers: authHeaders(),
     });
     const d = await r.json();
     if (d.issues_found > 0) {
@@ -3181,7 +3356,7 @@ async function runSelfDrivingScan() {
 async function runSelfDrivingPipeline() {
   const btn    = document.getElementById('sd-run-btn');
   const dryRun = document.getElementById('sd-dryrun').checked;
-  const hdr    = { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '', 'X-Mist-Host': SESSION.host || '' };
+  const hdr    = { 'Content-Type': 'application/json', ...authHeaders() };
   btn.disabled = true;
   btn.textContent = '⟳ Running...';
 

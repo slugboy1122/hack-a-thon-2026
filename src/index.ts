@@ -27,6 +27,7 @@ interface MistEventParams {
 
 interface MistCtx {
   token: string;
+  session: string; // Mist session cookie (email/password login)
   base: string;
 }
 
@@ -76,7 +77,7 @@ function handleCors(): Response {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Mist-Token, X-Mist-Host, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Mist-Token, X-Mist-Host, X-Mist-Session, Authorization',
       'Access-Control-Max-Age': '86400',
     },
   });
@@ -96,6 +97,10 @@ function getToken(request: Request, env: Env): string {
   return request.headers.get('X-Mist-Token') || env.MIST_API_TOKEN || '';
 }
 
+function getSession(request: Request): string {
+  return request.headers.get('X-Mist-Session') || '';
+}
+
 async function mistFetch(
   mctx: MistCtx,
   method: string,
@@ -108,9 +113,12 @@ async function mistFetch(
       if (v !== undefined && v !== '') u.searchParams.set(k, v);
     }
   }
+  const authHeader: Record<string, string> = mctx.session
+    ? { Cookie: `session=${mctx.session}` }
+    : { Authorization: `Token ${mctx.token}` };
   return fetch(u.toString(), {
     method,
-    headers: { Authorization: `Token ${mctx.token}`, 'Content-Type': 'application/json' },
+    headers: { ...authHeader, 'Content-Type': 'application/json' },
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
 }
@@ -915,7 +923,7 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
-    const mctx: MistCtx = { token: getToken(request, env), base: getMistBase(request, env) };
+    const mctx: MistCtx = { token: getToken(request, env), session: getSession(request), base: getMistBase(request, env) };
     const broadcaster = env.BROADCASTER.get(env.BROADCASTER.idFromName('main'));
 
     try {
@@ -958,12 +966,72 @@ async function dispatch(
   if (path === '/api/validate' && method === 'GET') {
     const tok = (request.headers.get('X-Mist-Token') || '').trim();
     if (!tok) return json({ error: 'No token provided' }, 400);
-    const r = await mistFetch({ token: tok, base: mctx.base }, 'GET', '/self');
+    const r = await mistFetch({ token: tok, session: '', base: mctx.base }, 'GET', '/self');
     if (r.status === 200) {
       const d = await r.json() as Record<string, unknown>;
       return json({ email: d.email || '', name: d.name || '', privileges: d.privileges || [] });
     }
     return json({ error: 'Invalid token' }, 401);
+  }
+
+  // ── Email/password login ───────────────────────────────────────────────────────
+  if (path === '/api/v1/login' && method === 'POST') {
+    const body = await request.json() as { email?: string; password?: string };
+    if (!body.email || !body.password) return json({ error: 'email and password required' }, 400);
+    const r = await fetch(`${mctx.base}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: body.email, password: body.password }),
+    });
+    if (r.status !== 200) {
+      const e = await r.json() as Record<string, unknown>;
+      return json({ error: (e.detail as string) || 'Login failed' }, 401);
+    }
+    const setCookie = r.headers.get('Set-Cookie') || '';
+    const session = setCookie.match(/(?:^|;)\s*session=([^;]+)/i)?.[1] || '';
+    const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}` } });
+    const self = await selfR.json() as Record<string, unknown>;
+    const twoFactorRequired = !!(self.two_factor_required && !self.two_factor_passed);
+    return json({
+      session,
+      two_factor_required: twoFactorRequired,
+      email: self.email || body.email,
+      name: [self.first_name, self.last_name].filter(Boolean).join(' '),
+      privileges: (self.privileges as unknown[]) || [],
+    });
+  }
+
+  // ── 2FA verification ──────────────────────────────────────────────────────────
+  if (path === '/api/v1/login/two_factor' && method === 'POST') {
+    const body = await request.json() as { two_factor?: string };
+    const session = mctx.session;
+    if (!session) return json({ error: 'No session' }, 400);
+    if (!body.two_factor) return json({ error: 'two_factor code required' }, 400);
+    const r = await fetch(`${mctx.base}/login/two_factor`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: `session=${session}` },
+      body: JSON.stringify({ two_factor: body.two_factor }),
+    });
+    if (r.status !== 200) return json({ error: 'Invalid 2FA code' }, 401);
+    const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}` } });
+    const self = await selfR.json() as Record<string, unknown>;
+    return json({
+      session,
+      email: self.email || '',
+      name: [self.first_name, self.last_name].filter(Boolean).join(' '),
+      privileges: (self.privileges as unknown[]) || [],
+    });
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────────────
+  if (path === '/api/v1/logout' && method === 'POST') {
+    if (mctx.session) {
+      await fetch(`${mctx.base}/logout`, {
+        method: 'POST',
+        headers: { Cookie: `session=${mctx.session}` },
+      });
+    }
+    return json({ ok: true });
   }
 
   // ── Mist /self ────────────────────────────────────────────────────────────────
