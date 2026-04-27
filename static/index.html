@@ -2495,10 +2495,11 @@ async function n8nAction(action, extra = {}) {
   resultEl.style.display = 'block';
   resultEl.style.color = 'var(--muted)';
   resultEl.textContent = `// Calling action: ${action}...`;
+  const liveActions = new Set(['restart_device']);
   try {
     const r = await fetch('/api/n8n/action', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(liveActions.has(action) ? { 'X-Tatooine-Confirm': 'live' } : {}) },
       body: JSON.stringify({ action, org_id: ORG_ID, ...extra }),
     });
     const d = await r.json();
@@ -3388,7 +3389,7 @@ async function runSelfDrivingScan() {
 async function runSelfDrivingPipeline() {
   const btn    = document.getElementById('sd-run-btn');
   const dryRun = document.getElementById('sd-dryrun').checked;
-  const hdr    = { 'Content-Type': 'application/json', ...authHeaders() };
+  const hdr    = { 'Content-Type': 'application/json', ...authHeaders(), ...(!dryRun ? { 'X-Tatooine-Confirm': 'live' } : {}) };
   btn.disabled = true;
   btn.textContent = '⟳ Running...';
 
