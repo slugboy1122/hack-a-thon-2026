@@ -978,7 +978,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         </div>
         <div class="grid-2">
           <div class="card">
-            <div class="card-header"><span class="card-title">Site Health</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="site-health-lbl">LOADING</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:8px">24H</span></div>
+            <div class="card-header"><span class="card-title">Site Health</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="site-health-lbl">LOADING</span><span style="font-family:var(--mono);font-size:9px;color:var(--ok);margin-left:8px">LIVE</span></div>
             <div class="card-body cb-scroll cb-scroll-sm" id="site-health-body"><div id="site-rows"><span class="spinner-sm"></span></div></div>
           </div>
           <div class="card">
@@ -2244,12 +2244,13 @@ function renderWanEvents(evts) {
 async function loadLog() {
   document.getElementById('log-sub').textContent = 'Loading...';
   try {
-    const data = await mist('/orgs/' + ORG_ID + '/logs?limit=50');
+    const start24h = Math.floor((Date.now() - 86400000) / 1000);
+    const data = await mist(`/orgs/${ORG_ID}/logs?limit=200&start=${start24h}`);
     const items = Array.isArray(data) ? data : (data.results || []);
-    document.getElementById('log-sub').textContent = `${items.length} recent events`;
+    document.getElementById('log-sub').textContent = `${items.length} events · last 24h`;
     const el = document.getElementById('full-log');
     renderEventLog(el, items);
-    renderEventLog(document.getElementById('event-feed'), items.slice(0, 6));
+    renderEventLog(document.getElementById('event-feed'), items);
   } catch(e) {
     document.getElementById('full-log').innerHTML =
       '<span style="font-family:var(--mono);font-size:11px;color:var(--danger)">// Error: ' + e.message + '</span>';
