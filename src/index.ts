@@ -995,9 +995,11 @@ async function dispatch(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: body.email, password: body.password }),
     });
+    const rawBody = await r.text();
     if (r.status !== 200) {
-      const e = await r.json() as Record<string, unknown>;
-      return json({ error: (e.detail as string) || 'Login failed' }, 401);
+      let detail = 'Login failed';
+      try { detail = (JSON.parse(rawBody) as Record<string, unknown>).detail as string || detail; } catch { /* ok */ }
+      return json({ error: detail }, 401);
     }
 
     // CF Workers: headers.get('set-cookie') returns only the first value.
@@ -1009,7 +1011,20 @@ async function dispatch(
         if (m) { session = m[1]; break; }
       }
     }
-    if (!session) return json({ error: 'Login succeeded but no session cookie returned — check cloud region.' }, 502);
+    if (!session) {
+      // Mist returns 200 with no cookie for SSO-federated accounts (@juniper.net, @mist.com, etc.)
+      // that must authenticate through their company IdP — email/password login is not supported.
+      let hint = 'email/password login is not supported for this account.';
+      try {
+        const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+        if (parsed.detail) hint = String(parsed.detail);
+      } catch { /* ok */ }
+      return json({
+        error: 'SSO account detected',
+        message: `Your @${body.email.split('@')[1]} account uses Single Sign-On — Mist does not issue a session for direct email/password login. Use an API token instead: Mist Dashboard → My Profile → API Token.`,
+        hint,
+      }, 403);
+    }
 
     const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}` } });
     const self = await selfR.json() as Record<string, unknown>;

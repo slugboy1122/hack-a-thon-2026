@@ -1532,7 +1532,13 @@ async function doLoginConnect() {
     });
     const d = await r.json();
     if (!r.ok) {
-      err.textContent = d.error || 'Login failed — check your credentials.';
+      if (d.error === 'SSO account detected') {
+        err.textContent = d.message || 'SSO account — use an API token instead.';
+        // Auto-switch to token tab to guide the user
+        setTimeout(() => setAuthMode('token'), 1800);
+      } else {
+        err.textContent = d.error || 'Login failed — check your credentials.';
+      }
       btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
       return;
     }
