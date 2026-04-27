@@ -999,17 +999,34 @@ async function dispatch(
       const e = await r.json() as Record<string, unknown>;
       return json({ error: (e.detail as string) || 'Login failed' }, 401);
     }
-    const setCookie = r.headers.get('Set-Cookie') || '';
-    const session = setCookie.match(/(?:^|;)\s*session=([^;]+)/i)?.[1] || '';
+
+    // CF Workers: headers.get('set-cookie') returns only the first value.
+    // Iterate all header entries to find the session cookie across any Set-Cookie line.
+    let session = '';
+    for (const [k, v] of r.headers.entries()) {
+      if (k.toLowerCase() === 'set-cookie') {
+        const m = v.match(/\bsession=([^;,\s]+)/i);
+        if (m) { session = m[1]; break; }
+      }
+    }
+    if (!session) return json({ error: 'Login succeeded but no session cookie returned — check cloud region.' }, 502);
+
     const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}` } });
     const self = await selfR.json() as Record<string, unknown>;
     const twoFactorRequired = !!(self.two_factor_required && !self.two_factor_passed);
+
+    let privs = (self.privileges as Array<Record<string, unknown>>) || [];
+    // Mist sometimes omits privileges[] but sets org_id at the top level
+    if (!privs.some((p) => p.org_id) && self.org_id) {
+      privs = [{ scope: 'org', org_id: self.org_id, role: 'admin', name: self.email || body.email }];
+    }
+
     return json({
       session,
       two_factor_required: twoFactorRequired,
       email: self.email || body.email,
       name: [self.first_name, self.last_name].filter(Boolean).join(' '),
-      privileges: (self.privileges as unknown[]) || [],
+      privileges: privs,
     });
   }
 
@@ -1027,11 +1044,17 @@ async function dispatch(
     if (r.status !== 200) return json({ error: 'Invalid 2FA code' }, 401);
     const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}` } });
     const self = await selfR.json() as Record<string, unknown>;
+
+    let privs = (self.privileges as Array<Record<string, unknown>>) || [];
+    if (!privs.some((p) => p.org_id) && self.org_id) {
+      privs = [{ scope: 'org', org_id: self.org_id, role: 'admin', name: self.email || '' }];
+    }
+
     return json({
       session,
       email: self.email || '',
       name: [self.first_name, self.last_name].filter(Boolean).join(' '),
-      privileges: (self.privileges as unknown[]) || [],
+      privileges: privs,
     });
   }
 
