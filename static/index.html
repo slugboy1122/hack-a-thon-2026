@@ -319,6 +319,22 @@ html[data-theme="light"] #ai-tooltip::before{background:rgba(245,248,252,0.98);b
 .card-title{font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text)}
 .card-body{padding:16px}
 
+/* ── Scrollable card bodies ── */
+.cb-scroll{overflow-y:auto;overflow-x:hidden}
+.cb-scroll-sm{max-height:190px}
+.cb-scroll-md{max-height:272px}
+/* Sticky thead inside scrollable card bodies */
+.cb-scroll .ap-table thead th{
+  position:sticky;top:0;z-index:2;
+  background:rgba(10,8,5,0.97);
+  backdrop-filter:blur(4px);
+}
+html[data-theme="light"] .cb-scroll .ap-table thead th{background:rgba(238,242,248,0.97)}
+/* Subtle scroll indicator shadow at bottom */
+.cb-scroll{
+  background-attachment:local,local,scroll,scroll;
+}
+
 /* ── Tables ── */
 .ap-table{width:100%;border-collapse:collapse}
 .ap-table th{
@@ -963,16 +979,16 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         <div class="grid-2">
           <div class="card">
             <div class="card-header"><span class="card-title">Site Health</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)" id="site-health-lbl">LOADING</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:8px">24H</span></div>
-            <div class="card-body"><div id="site-rows"><span class="spinner-sm"></span></div></div>
+            <div class="card-body cb-scroll cb-scroll-sm" id="site-health-body"><div id="site-rows"><span class="spinner-sm"></span></div></div>
           </div>
           <div class="card">
             <div class="card-header"><span class="card-title">Recent Audit Events</span><span style="font-family:var(--mono);font-size:9px;color:var(--ok)">LIVE</span></div>
-            <div class="card-body" style="padding:10px 16px"><div class="event-log" id="event-feed"></div></div>
+            <div class="card-body cb-scroll cb-scroll-sm" id="audit-events-body" style="padding:10px 16px"><div class="event-log" id="event-feed"></div></div>
           </div>
         </div>
         <div class="card" style="margin-bottom:20px">
           <div class="card-header"><span class="card-title">Access Points</span><button class="btn" style="font-size:11px;padding:4px 10px" onclick="loadAPs()">Refresh</button></div>
-          <div class="card-body" style="padding:0">
+          <div class="card-body cb-scroll cb-scroll-md" id="ap-table-body" style="padding:0">
             <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>Clients</th><th>Status</th></tr></thead>
             <tbody id="dash-ap-body"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Fetching device data...</td></tr></tbody></table>
           </div>
@@ -980,14 +996,14 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         <div class="grid-2" style="margin-bottom:20px">
           <div class="card">
             <div class="card-header"><span class="card-title">Switches</span><button class="btn" style="font-size:11px;padding:4px 10px" onclick="loadSwitches()">Refresh</button></div>
-            <div class="card-body" style="padding:0">
+            <div class="card-body cb-scroll cb-scroll-md" id="sw-table-body" style="padding:0">
               <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>PoE</th><th>Status</th></tr></thead>
               <tbody id="dash-sw-body"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Loading switches...</td></tr></tbody></table>
             </div>
           </div>
           <div class="card">
             <div class="card-header"><span class="card-title">WAN / Gateways</span><button class="btn" style="font-size:11px;padding:4px 10px" onclick="loadWan()">Refresh</button></div>
-            <div class="card-body" style="padding:0">
+            <div class="card-body cb-scroll cb-scroll-md" id="wan-table-body" style="padding:0">
               <table class="ap-table"><thead><tr><th>Name</th><th>Site</th><th>Model</th><th>IP</th><th>WAN</th><th>Status</th></tr></thead>
               <tbody id="dash-gw-body"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">// Loading gateways...</td></tr></tbody></table>
             </div>
