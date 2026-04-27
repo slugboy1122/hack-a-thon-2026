@@ -77,7 +77,7 @@ function handleCors(): Response {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Mist-Token, X-Mist-Host, X-Mist-Session, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Mist-Token, X-Mist-Host, X-Mist-Session, X-Tatooine-Confirm, Authorization',
       'Access-Control-Max-Age': '86400',
     },
   });
@@ -99,6 +99,18 @@ function getToken(request: Request, env: Env): string {
 
 function getSession(request: Request): string {
   return request.headers.get('X-Mist-Session') || '';
+}
+
+// Blocks live-write endpoints unless the caller explicitly acknowledges
+// the action is intentional. Prevents accidental or CSRF-driven mutations.
+function requireLiveConfirm(request: Request): Response | null {
+  if (request.headers.get('X-Tatooine-Confirm') !== 'live') {
+    return json({
+      error: 'live_confirmation_required',
+      message: 'This action modifies live Mist infrastructure. The request must include X-Tatooine-Confirm: live.',
+    }, 403);
+  }
+  return null;
 }
 
 async function mistFetch(
@@ -1059,9 +1071,12 @@ async function dispatch(
   if ((m = path.match(/^\/api\/v1\/sites\/([^/]+)\/devices\/events\/search$/)))
     return mistProxy(mctx, method, `/sites/${m[1]}/devices/events/search`, { params: allQP() });
 
-  // /api/v1/sites/:sid/devices/:did/reboot
-  if ((m = path.match(/^\/api\/v1\/sites\/([^/]+)\/devices\/([^/]+)\/reboot$/)) && method === 'POST')
+  // /api/v1/sites/:sid/devices/:did/reboot — live write, requires explicit confirmation
+  if ((m = path.match(/^\/api\/v1\/sites\/([^/]+)\/devices\/([^/]+)\/reboot$/)) && method === 'POST') {
+    const guard = requireLiveConfirm(request);
+    if (guard) return guard;
     return mistProxy(mctx, 'POST', `/sites/${m[1]}/devices/${m[2]}/reboot`);
+  }
 
   // /api/v1/sites/:sid/devices/:did
   if ((m = path.match(/^\/api\/v1\/sites\/([^/]+)\/devices\/([^/]+)$/)))
@@ -1130,6 +1145,10 @@ async function dispatch(
     const diagnoses = body.diagnoses || [];
     if (!diagnoses.length) return json({ error: 'diagnoses required — run /diagnose first' }, 400);
     const dryRun = body.dry_run !== false;
+    if (!dryRun) {
+      const guard = requireLiveConfirm(request);
+      if (guard) return guard;
+    }
     const issuesById = Object.fromEntries((body.issues || []).map((i) => [i.id, i]));
     const t0 = Date.now();
     const actions = await sdApplyRemediations(mctx, diagnoses, dryRun, issuesById);
@@ -1146,6 +1165,10 @@ async function dispatch(
     let body: { dry_run?: boolean } = {};
     try { body = await request.json() as typeof body; } catch { /* ok */ }
     const dryRun = body.dry_run !== false;
+    if (!dryRun) {
+      const guard = requireLiveConfirm(request);
+      if (guard) return guard;
+    }
     const t0 = Date.now();
 
     const telemetry = await sdCollectTelemetry(mctx, orgId);
@@ -1195,6 +1218,61 @@ async function dispatch(
   if ((m = path.match(/^\/api\/v1\/orgs\/([^/]+)\/(.+)$/))) {
     const body = ['POST', 'PUT'].includes(method) ? await request.json() : undefined;
     return mistProxy(mctx, method, `/orgs/${m[1]}/${m[2]}`, { params: allQP(), body });
+  }
+
+  // ── Hover-info (AI context hints with KV cache) ───────────────────────────────
+
+  if (path === '/api/v1/hover-info' && method === 'POST') {
+    let body: { action?: string } = {};
+    try { body = await request.json() as typeof body; } catch { /* ok */ }
+    const action = (body.action || '').trim().slice(0, 100);
+    if (!action) return json({ error: 'action required' }, 400);
+
+    const cacheKey = `hover:${action}`;
+    const cached = await env.AUTOMATIONS.get(cacheKey);
+    if (cached) return json({ text: cached, cached: true });
+
+    const hintMap: Record<string, string> = {
+      run_pipeline:      'Runs the full L1→L2→L3 self-driving pipeline: detects issues, asks Claude for root-cause diagnosis, and applies safe remediations.',
+      refresh_aps:       'Fetches live AP stats from the Mist API — connection status, client counts, radio channel utilization, and noise floor for all access points.',
+      refresh_switches:  'Pulls current switch stats including PoE draw, port status, and uplink health across all sites.',
+      refresh_wan:       'Retrieves WAN gateway stats: uplink status, IP assignments, latency, and interface-level health.',
+      refresh_wlans:     'Loads the WLAN (SSID) configuration list for the selected site or org — auth type, VLAN, bands, and enabled state.',
+      send_chat:         'Sends your message to Claude, which has live access to your Mist org via API tools — it can look up devices, stats, alarms, and configs in real time.',
+      get_sites:         'Fetches all sites in your Mist org with location and address details.',
+      get_devices:       'Retrieves all devices in the selected site — APs, switches, and gateways with their current status.',
+      get_clients:       'Lists active wireless clients on the selected site with RSSI, band, SSID, and IP.',
+      get_alarms:        'Pulls open alarms for the org — severity, type, affected site, and timestamp.',
+      restart_device:    'Sends a reboot command to the specified device via Mist API. Requires explicit confirmation header.',
+      insights_stream:   'Opens a live WebSocket stream from the Broadcaster DO — receives real-time Mist events and Claude alarm analyses as they arrive.',
+      load_log:          'Fetches recent audit log entries from Mist showing config changes, user actions, and system events.',
+      load_nac:          'Lists NAC (Network Access Control) rules and client authorization policies.',
+      troubleshoot:      'Opens the AI troubleshooter — describe a device or client issue and Claude will diagnose it using live Mist telemetry.',
+    };
+
+    if (hintMap[action]) {
+      await env.AUTOMATIONS.put(cacheKey, hintMap[action], { expirationTtl: 604800 }); // 1 week
+      return json({ text: hintMap[action], cached: false });
+    }
+
+    if (!env.ANTHROPIC_API_KEY) return json({ text: `${action.replace(/_/g,' ')} — Mist API action.`, cached: false });
+
+    try {
+      const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+      const resp = await client.messages.create({
+        model: env.CLAUDE_MODEL || 'claude-sonnet-4-6',
+        max_tokens: 120,
+        messages: [{
+          role: 'user',
+          content: `You are a tooltip generator for the Tatooine Mist Network Intelligence dashboard. Write exactly 1-2 sentences (max 30 words) describing what the "${action.replace(/_/g,' ')}" action does in the context of Mist network management. Be specific and actionable. No markdown.`,
+        }],
+      });
+      const text = (resp.content[0] as Anthropic.TextBlock).text.trim();
+      await env.AUTOMATIONS.put(cacheKey, text, { expirationTtl: 604800 });
+      return json({ text, cached: false });
+    } catch (e) {
+      return json({ text: `${action.replace(/_/g,' ')} — Mist API action.`, cached: false, error: String(e) });
+    }
   }
 
   // ── Automations (KV-backed CRUD) ──────────────────────────────────────────────
@@ -1316,7 +1394,11 @@ async function dispatch(
       case 'get_devices':    return mistProxy(mctx, 'GET',  `/sites/${site_id}/devices`);
       case 'get_clients':    return mistProxy(mctx, 'GET',  `/sites/${site_id}/stats/clients`);
       case 'get_alarms':     return mistProxy(mctx, 'GET',  `/orgs/${org_id}/alarms/search`);
-      case 'restart_device': return mistProxy(mctx, 'POST', `/sites/${site_id}/devices/${device_id}/restart`);
+      case 'restart_device': {
+        const guard = requireLiveConfirm(request);
+        if (guard) return guard;
+        return mistProxy(mctx, 'POST', `/sites/${site_id}/devices/${device_id}/restart`);
+      }
       default:               return json({ error: 'Unknown action', action }, 400);
     }
   }

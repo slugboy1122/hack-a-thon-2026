@@ -243,12 +243,36 @@ header::after{
 .api-ctr-sub{font-family:var(--mono);font-size:9px;color:#a09070;letter-spacing:0.04em}
 @keyframes api-flash{0%{background:rgba(200,150,55,0.08)}35%{background:rgba(200,150,55,0.22)}100%{background:rgba(200,150,55,0.08)}}
 #api-counter-widget.api-flashing{animation:api-flash 0.65s ease-out}
+/* per-endpoint breakdown */
+.api-ctr-endpoints{margin-top:8px;border-top:1px solid rgba(200,150,55,0.18);padding-top:7px;display:none}
+.api-ctr-endpoints.has-data{display:block}
+.api-ep-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.api-ep-name{font-family:var(--mono);font-size:8px;color:var(--muted2);letter-spacing:0.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.api-ep-bar-wrap{flex:1;height:3px;background:rgba(200,150,55,0.15);margin:0 6px;border-radius:2px;overflow:hidden}
+.api-ep-bar{height:100%;background:rgba(232,160,64,0.55);border-radius:2px;transition:width 0.35s ease}
+.api-ep-count{font-family:var(--mono);font-size:8px;color:var(--muted);white-space:nowrap}
 html[data-theme="light"] #api-counter-widget{background:rgba(0,119,181,0.08);border-color:rgba(0,119,181,0.35)}
 html[data-theme="light"] .api-ctr-label{color:#004471}
 html[data-theme="light"] .api-ctr-track{background:rgba(0,119,181,0.18)}
 html[data-theme="light"] .api-ctr-fill{background:#0077B5}
 html[data-theme="light"] .api-ctr-value{color:#0077B5}
 html[data-theme="light"] .api-ctr-sub{color:#005E93}
+html[data-theme="light"] .api-ep-bar{background:rgba(0,119,181,0.45)}
+
+/* ── AI Hover Tooltip ── */
+#ai-tooltip{
+  position:fixed;z-index:9000;max-width:260px;padding:8px 11px;
+  background:rgba(16,13,7,0.97);border:1px solid rgba(200,150,55,0.45);
+  color:var(--text);font-family:var(--mono);font-size:10px;line-height:1.65;
+  letter-spacing:0.025em;pointer-events:none;opacity:0;
+  transition:opacity 0.14s ease;box-shadow:0 4px 20px rgba(0,0,0,0.55);
+}
+#ai-tooltip.visible{opacity:1}
+#ai-tooltip::before{content:'AI';position:absolute;top:-1px;left:6px;transform:translateY(-100%);
+  font-family:var(--mono);font-size:7px;color:var(--accent);letter-spacing:0.1em;padding:1px 4px;
+  background:rgba(16,13,7,0.97);border:1px solid rgba(200,150,55,0.45);border-bottom:none}
+html[data-theme="light"] #ai-tooltip{background:rgba(245,248,252,0.98);border-color:rgba(0,119,181,0.45);color:#1a1a2e;box-shadow:0 4px 20px rgba(0,0,0,0.18)}
+html[data-theme="light"] #ai-tooltip::before{background:rgba(245,248,252,0.98);border-color:rgba(0,119,181,0.45);color:var(--accent)}
 
 /* ── Main ── */
 .main{flex:1;overflow-y:auto;padding:22px 26px;background:var(--bg)}
@@ -599,6 +623,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
 </style>
 </head>
 <body>
+<div id="ai-tooltip"></div>
 
 <!-- ══ LANDING PAGE ══════════════════════════════════════════════════════════════ -->
 <div id="login-screen">
@@ -803,7 +828,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         <div class="status-dot"></div>
         <span class="status-label" id="conn-label">LIVE</span>
       </div>
-      <button class="btn-tshoot" onclick="openTshoot()">
+      <button class="btn-tshoot" onclick="openTshoot()" data-hover-action="troubleshoot">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
         Troubleshoot
       </button>
@@ -893,12 +918,13 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
       </div>
       <div class="sidebar-spacer"></div>
       <div id="api-counter-widget">
-        <div class="api-ctr-label">Mist API Call Count</div>
+        <div class="api-ctr-label">Mist API Calls</div>
         <div class="api-ctr-row">
           <div class="api-ctr-track"><div class="api-ctr-fill" id="api-ctr-fill"></div></div>
           <span class="api-ctr-value" id="api-ctr-value">0/5000</span>
         </div>
         <div class="api-ctr-sub" id="api-ctr-sub">0.0s · this session</div>
+        <div class="api-ctr-endpoints" id="api-ep-list"></div>
       </div>
       <svg class="sidebar-dunes" viewBox="0 0 210 70" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
         <defs>
@@ -1095,7 +1121,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
               <input class="marvis-input" id="chat-input"
                 placeholder="Ask anything about your network... e.g. 'Which APs are offline?'"
                 onkeydown="if(event.key==='Enter')sendChat()">
-              <button class="btn btn-primary" id="chat-send" onclick="sendChat()">Send →</button>
+              <button class="btn btn-primary" id="chat-send" onclick="sendChat()" data-hover-action="send_chat">Send →</button>
             </div>
           </div>
         </div>
@@ -1117,7 +1143,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
             <label style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--muted2);cursor:pointer">
               <input type="checkbox" id="sd-dryrun" checked style="accent-color:var(--accent)"> Dry-run
             </label>
-            <button class="btn btn-primary" id="sd-run-btn" onclick="runSelfDrivingPipeline()">▶ Run Pipeline</button>
+            <button class="btn btn-primary" id="sd-run-btn" onclick="runSelfDrivingPipeline()" data-hover-action="run_pipeline">▶ Run Pipeline</button>
           </div>
         </div>
 
@@ -1205,11 +1231,11 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           <div class="card-header"><span class="card-title">Quick Actions</span><span style="font-family:var(--mono);font-size:9px;color:var(--muted2)">CLOUDFLARE WORKER</span></div>
           <div class="card-body" style="padding:12px 16px">
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-              <button class="btn" onclick="n8nAction('get_sites')" style="font-size:12px">◈ Get Sites</button>
-              <button class="btn" onclick="n8nActionWithSite('get_devices')" style="font-size:12px">◉ Get Devices</button>
-              <button class="btn" onclick="n8nActionWithSite('get_clients')" style="font-size:12px">◎ Get Clients</button>
-              <button class="btn" onclick="n8nAction('get_alarms')" style="font-size:12px">⚠ Get Alarms</button>
-              <button class="btn btn-danger" onclick="n8nRestartDevice()" style="font-size:12px">↺ Restart Device</button>
+              <button class="btn" onclick="n8nAction('get_sites')" style="font-size:12px" data-hover-action="get_sites">◈ Get Sites</button>
+              <button class="btn" onclick="n8nActionWithSite('get_devices')" style="font-size:12px" data-hover-action="get_devices">◉ Get Devices</button>
+              <button class="btn" onclick="n8nActionWithSite('get_clients')" style="font-size:12px" data-hover-action="get_clients">◎ Get Clients</button>
+              <button class="btn" onclick="n8nAction('get_alarms')" style="font-size:12px" data-hover-action="get_alarms">⚠ Get Alarms</button>
+              <button class="btn btn-danger" onclick="n8nRestartDevice()" style="font-size:12px" data-hover-action="restart_device">↺ Restart Device</button>
             </div>
             <div id="n8n-action-result" style="display:none;background:var(--bg3);border:1px solid var(--border);padding:14px;font-family:var(--mono);font-size:11px;line-height:1.7;max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-word"></div>
           </div>
@@ -1244,7 +1270,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
           <div><div class="section-title">Org Insights</div><div class="section-sub">Live stream · Mist WebSocket <code style="font-family:var(--mono);font-size:10px;color:var(--accent2)">/orgs/{org}/insights/summary</code></div></div>
           <div style="display:flex;gap:8px;align-items:center">
             <span id="insights-ws-status" style="font-family:var(--mono);font-size:11px;color:var(--muted2)">● Disconnected</span>
-            <button class="btn" onclick="toggleInsightsStream()" id="insights-btn" style="font-size:11px;padding:4px 12px">Connect</button>
+            <button class="btn" onclick="toggleInsightsStream()" id="insights-btn" style="font-size:11px;padding:4px 12px" data-hover-action="insights_stream">Connect</button>
           </div>
         </div>
         <div class="kpi-row" id="insights-kpi-row" style="display:none">
@@ -3636,6 +3662,55 @@ const API_CALL_LIMIT = 5000;
 let _apiCallCount = 0;
 let _apiTotalSecs  = 0;
 let _apiFlashTimer = null;
+const _apiEndpointCounts = {};  // label→count for per-endpoint breakdown
+
+function _endpointLabel(path) {
+  if (!path) return 'other';
+  if (path.includes('/stats/devices'))  return 'stats/devices';
+  if (path.includes('/stats/clients'))  return 'stats/clients';
+  if (path.includes('/stats/'))         return 'stats/site';
+  if (path.includes('/alarms'))         return 'alarms';
+  if (path.includes('/devices'))        return 'devices';
+  if (path.includes('/wlans'))          return 'wlans';
+  if (path.includes('/clients'))        return 'clients';
+  if (path.includes('/logs'))           return 'audit-logs';
+  if (path.includes('/self-driving'))   return 'self-driving';
+  if (path.includes('/chat'))           return 'ai-chat';
+  if (path.includes('/self'))           return 'self';
+  if (path.includes('/sites'))          return 'sites';
+  if (path.includes('/orgs'))           return 'org';
+  return 'other';
+}
+
+function _renderEpBreakdown() {
+  const epList = document.getElementById('api-ep-list');
+  if (!epList) return;
+  const entries = Object.entries(_apiEndpointCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (!entries.length) return;
+  const maxVal = entries[0][1];
+  epList.textContent = '';
+  entries.forEach(([ep, n]) => {
+    const row = document.createElement('div');
+    row.className = 'api-ep-row';
+    const name = document.createElement('span');
+    name.className = 'api-ep-name';
+    name.textContent = ep;
+    const barWrap = document.createElement('div');
+    barWrap.className = 'api-ep-bar-wrap';
+    const bar = document.createElement('div');
+    bar.className = 'api-ep-bar';
+    bar.style.width = Math.round(n / maxVal * 100) + '%';
+    barWrap.appendChild(bar);
+    const cnt = document.createElement('span');
+    cnt.className = 'api-ep-count';
+    cnt.textContent = String(n);
+    row.appendChild(name);
+    row.appendChild(barWrap);
+    row.appendChild(cnt);
+    epList.appendChild(row);
+  });
+  epList.classList.add('has-data');
+}
 
 function _renderApiWidget(count, secs) {
   const widget = document.getElementById('api-counter-widget');
@@ -3654,6 +3729,8 @@ function _renderApiWidget(count, secs) {
   const sub = document.getElementById('api-ctr-sub');
   if (sub) sub.textContent = (secs !== undefined ? secs.toFixed(1) : _apiTotalSecs.toFixed(1)) + 's · this session';
 
+  _renderEpBreakdown();
+
   // Subtle flash on each update
   clearTimeout(_apiFlashTimer);
   widget.classList.remove('api-flashing');
@@ -3663,8 +3740,10 @@ function _renderApiWidget(count, secs) {
   });
 }
 
-function _incrementApiCounter() {
+function _incrementApiCounter(path) {
   _apiCallCount++;
+  const label = _endpointLabel(path);
+  _apiEndpointCounts[label] = (_apiEndpointCounts[label] || 0) + 1;
   _renderApiWidget(_apiCallCount);
 }
 
@@ -3680,9 +3759,75 @@ async function _syncApiCounter() {
 // Patch mist() to count calls
 const _origMist = mist;
 window.mist = async function(path, opts={}) {
-  _incrementApiCounter();
+  _incrementApiCounter(path);
   return _origMist(path, opts);
 };
+
+// ── AI Hover Tooltip ───────────────────────────────────────────────────────────
+const _hoverCache = new Map();
+let   _hoverTimer = null;
+const _tooltip    = document.getElementById('ai-tooltip');
+
+function _positionTooltip(el) {
+  if (!_tooltip) return;
+  const r = el.getBoundingClientRect();
+  const TW = 260;
+  let left = r.left + r.width / 2 - TW / 2;
+  let top  = r.bottom + 10;
+  if (left < 8) left = 8;
+  if (left + TW > window.innerWidth - 8) left = window.innerWidth - TW - 8;
+  if (top + 80 > window.innerHeight - 8) top = r.top - 80 - 10;
+  _tooltip.style.left = left + 'px';
+  _tooltip.style.top  = top  + 'px';
+}
+
+async function _showHint(el, action) {
+  if (!_tooltip) return;
+  _tooltip.textContent = '…';
+  _tooltip.classList.add('visible');
+  _positionTooltip(el);
+
+  if (_hoverCache.has(action)) {
+    _tooltip.textContent = _hoverCache.get(action);
+    return;
+  }
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (SESSION.token)   headers['X-Mist-Token']   = SESSION.token;
+    if (SESSION.session) headers['X-Mist-Session'] = SESSION.session;
+    const r = await fetch('/api/v1/hover-info', { method: 'POST', headers, body: JSON.stringify({ action }) });
+    const d = await r.json();
+    const text = d.text || action.replace(/_/g, ' ');
+    _hoverCache.set(action, text);
+    if (_tooltip.classList.contains('visible')) {
+      _tooltip.textContent = text;
+      _positionTooltip(el);
+    }
+  } catch(_e) {
+    if (_tooltip.classList.contains('visible')) _tooltip.textContent = action.replace(/_/g, ' ');
+  }
+}
+
+function _hideHint() {
+  clearTimeout(_hoverTimer);
+  if (_tooltip) _tooltip.classList.remove('visible');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.addEventListener('mouseenter', e => {
+    const el = e.target.closest('[data-hover-action]');
+    if (!el) return;
+    clearTimeout(_hoverTimer);
+    _hoverTimer = setTimeout(() => _showHint(el, el.dataset.hoverAction), 260);
+  }, true);
+
+  document.body.addEventListener('mouseleave', e => {
+    if (!e.target.closest('[data-hover-action]')) return;
+    _hideHint();
+  }, true);
+
+  document.body.addEventListener('click', _hideHint, true);
+});
 
 // ── Inactivity session timeout (5 min) ────────────────────────────────────────
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;  // 5 minutes
