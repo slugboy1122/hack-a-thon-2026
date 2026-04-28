@@ -1321,7 +1321,7 @@ async function dispatch(
     try {
       const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
       const resp = await client.messages.create({
-        model: env.CLAUDE_MODEL || 'claude-sonnet-4-6',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 120,
         messages: [{
           role: 'user',
