@@ -1012,18 +1012,23 @@ async function dispatch(
       }
     }
     if (!session) {
-      // Mist returns 200 with no cookie for SSO-federated accounts (@juniper.net, @mist.com, etc.)
-      // that must authenticate through their company IdP — email/password login is not supported.
-      let hint = 'email/password login is not supported for this account.';
+      // Mist returns 200 with no cookie for SSO-federated accounts.
+      // Probe the portal SSO endpoint to get the org-configured IdP redirect URL.
+      let ssoUrl: string | null = null;
       try {
-        const parsed = JSON.parse(rawBody) as Record<string, unknown>;
-        if (parsed.detail) hint = String(parsed.detail);
-      } catch { /* ok */ }
-      return json({
-        error: 'SSO account detected',
-        message: `Your @${body.email.split('@')[1]} account uses Single Sign-On — Mist does not issue a session for direct email/password login. Use an API token instead: Mist Dashboard → My Profile → API Token.`,
-        hint,
-      }, 403);
+        const ssoResp = await fetch(
+          `${mctx.base}/login/sso?email=${encodeURIComponent(body.email)}`,
+          { redirect: 'manual' }
+        );
+        if (ssoResp.status === 302 || ssoResp.status === 301) {
+          ssoUrl = ssoResp.headers.get('Location');
+        } else if (ssoResp.status === 200) {
+          const ssoBody = await ssoResp.json() as Record<string, unknown>;
+          ssoUrl = (ssoBody.url ?? ssoBody.sso_url ?? ssoBody.redirect) as string | null;
+        }
+      } catch { /* ok — fall through to token guidance */ }
+
+      return json({ error: 'sso_required', sso_url: ssoUrl, email: body.email }, 403);
     }
 
     const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}` } });

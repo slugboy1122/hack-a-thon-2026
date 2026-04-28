@@ -809,6 +809,25 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
       <button id="tfa-btn" onclick="doTwoFactor()">Verify →</button>
     </div>
 
+    <!-- SSO flow (shown when Mist detects an SSO-federated account) -->
+    <div id="connect-sso-section" style="display:none">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
+        Your account uses <span style="color:var(--accent2)" id="sso-domain-label">SSO</span>.<br>
+        Sign in via your organization's portal, then paste your API token below.
+      </div>
+      <button id="sso-launch-btn" onclick="launchSsoPortal()" style="width:100%;padding:11px;background:rgba(90,184,216,0.08);border:1px solid var(--accent2);color:var(--accent2);font-family:var(--mono);font-size:12px;letter-spacing:0.08em;cursor:pointer;margin-bottom:12px;transition:all var(--transition)">
+        Open SSO Sign-In Portal ↗
+      </button>
+      <div class="login-field">
+        <div class="login-label">API Token <span style="color:var(--muted);font-size:9px">(from Mist → My Profile → API Token)</span></div>
+        <input id="sso-token-input" class="login-input" type="password"
+          placeholder="Paste API token after signing in"
+          oninput="onSsoTokenInput()"
+          onkeydown="if(event.key==='Enter')doSsoTokenConnect()">
+      </div>
+      <button id="sso-connect-btn" onclick="doSsoTokenConnect()" disabled>Connect →</button>
+    </div>
+
     <div id="connect-org-picker" style="display:none">
       <div class="login-label" style="margin-bottom:10px">Select Organization</div>
       <div id="connect-org-list"></div>
@@ -1484,6 +1503,8 @@ let tshootType = 'wireless';
 // ── Connect modal ──────────────────────────────────────────────────────────────
 let _connectPending = { token: null, session: null, selfData: null, privs: [], host: null };
 let _authMode = 'token';
+let _pendingSsoUrl = null;
+let _pendingSsoHost = '';
 
 function setAuthMode(mode) {
   _authMode = mode;
@@ -1548,10 +1569,15 @@ async function doLoginConnect() {
     });
     const d = await r.json();
     if (!r.ok) {
-      if (d.error === 'SSO account detected') {
-        err.textContent = d.message || 'SSO account — use an API token instead.';
-        // Auto-switch to token tab to guide the user
-        setTimeout(() => setAuthMode('token'), 1800);
+      if (d.error === 'sso_required') {
+        _pendingSsoUrl  = d.sso_url || null;
+        _pendingSsoHost = host;
+        document.getElementById('connect-login-section').style.display = 'none';
+        document.getElementById('connect-footer-login').style.display  = 'none';
+        document.getElementById('connect-sso-section').style.display   = '';
+        document.getElementById('sso-domain-label').textContent = email.split('@')[1] + ' SSO';
+        document.getElementById('connect-footer-token').style.display  = 'none';
+        err.textContent = '';
       } else {
         err.textContent = d.error || 'Login failed — check your credentials.';
       }
@@ -1571,6 +1597,26 @@ async function doLoginConnect() {
     err.textContent = 'Connection error: ' + e.message;
     btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
   }
+}
+
+function launchSsoPortal() {
+  const url = _pendingSsoUrl || 'https://manage.mist.com';
+  window.open(url, '_blank', 'width=960,height=720,noopener');
+}
+
+function onSsoTokenInput() {
+  const val = document.getElementById('sso-token-input').value.trim();
+  const btn = document.getElementById('sso-connect-btn');
+  btn.disabled = !val;
+  btn.className = val ? 'ready' : '';
+}
+
+async function doSsoTokenConnect() {
+  const token = document.getElementById('sso-token-input').value.trim();
+  if (!token) return;
+  document.getElementById('connect-token').value = token;
+  setAuthMode('token');
+  await doConnect();
 }
 
 async function doTwoFactor() {
