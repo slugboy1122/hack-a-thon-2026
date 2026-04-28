@@ -1836,9 +1836,78 @@ function authHeaders() {
   return h;
 }
 
+// ── API call counter state (declared here so mist() can reference them) ───────
+const API_CALL_LIMIT = 5000;
+let _mistApiCount  = 0;
+let _mistTotalSecs = 0;
+let _mistFlashTimer = null;
+const _mistEpCounts = {};
+
+function _mistEpLabel(path) {
+  if (!path) return 'other';
+  if (path.includes('/stats/devices'))  return 'stats/devices';
+  if (path.includes('/stats/clients'))  return 'stats/clients';
+  if (path.includes('/stats/'))         return 'stats/site';
+  if (path.includes('/alarms'))         return 'alarms';
+  if (path.includes('/devices'))        return 'devices';
+  if (path.includes('/wlans'))          return 'wlans';
+  if (path.includes('/clients'))        return 'clients';
+  if (path.includes('/logs'))           return 'audit-logs';
+  if (path.includes('/self-driving'))   return 'self-driving';
+  if (path.includes('/chat'))           return 'ai-chat';
+  if (path.includes('/self'))           return 'self';
+  if (path.includes('/sites'))          return 'sites';
+  if (path.includes('/orgs'))           return 'org';
+  return 'other';
+}
+
+function _renderApiWidget(count, secs) {
+  const widget = document.getElementById('api-counter-widget');
+  if (!widget) return;
+  widget.style.display = 'block';
+  const pct  = Math.min(count / API_CALL_LIMIT * 100, 100);
+  const tier = count >= API_CALL_LIMIT * 0.8 ? 'danger' : count >= API_CALL_LIMIT * 0.5 ? 'warn' : '';
+  const fill = document.getElementById('api-ctr-fill');
+  if (fill) { fill.style.width = pct + '%'; fill.className = 'api-ctr-fill' + (tier ? ' ' + tier : ''); }
+  const val = document.getElementById('api-ctr-value');
+  if (val) { val.textContent = count + '/' + API_CALL_LIMIT; val.className = 'api-ctr-value' + (tier ? ' ' + tier : ''); }
+  const sub = document.getElementById('api-ctr-sub');
+  if (sub) sub.textContent = (secs !== undefined ? secs.toFixed(1) : _mistTotalSecs.toFixed(1)) + 's · this session';
+  // per-endpoint breakdown
+  const epList = document.getElementById('api-ep-list');
+  if (epList) {
+    const entries = Object.entries(_mistEpCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (entries.length) {
+      const maxVal = entries[0][1];
+      epList.textContent = '';
+      entries.forEach(([ep, n]) => {
+        const row = document.createElement('div'); row.className = 'api-ep-row';
+        const nm = document.createElement('span'); nm.className = 'api-ep-name'; nm.textContent = ep;
+        const bw = document.createElement('div');  bw.className = 'api-ep-bar-wrap';
+        const br = document.createElement('div');  br.className = 'api-ep-bar'; br.style.width = Math.round(n / maxVal * 100) + '%';
+        bw.appendChild(br);
+        const ct = document.createElement('span'); ct.className = 'api-ep-count'; ct.textContent = String(n);
+        row.appendChild(nm); row.appendChild(bw); row.appendChild(ct);
+        epList.appendChild(row);
+      });
+      epList.classList.add('has-data');
+    }
+  }
+  // flash
+  clearTimeout(_mistFlashTimer);
+  widget.classList.remove('api-flashing');
+  requestAnimationFrame(() => {
+    widget.classList.add('api-flashing');
+    _mistFlashTimer = setTimeout(() => widget.classList.remove('api-flashing'), 700);
+  });
+}
+
 // ── API proxy ──────────────────────────────────────────────────────────────────
 async function mist(path, opts = {}) {
   if (!SESSION.token && !SESSION.session) { logout(); throw new Error('Not authenticated'); }
+  _mistApiCount++;
+  _mistEpCounts[_mistEpLabel(path)] = (_mistEpCounts[_mistEpLabel(path)] || 0) + 1;
+  _renderApiWidget(_mistApiCount);
   let ah;
   if (SESSION.token) {
     ah = { 'X-Mist-Token': SESSION.token };
@@ -3805,111 +3874,14 @@ function injectPipelineEvents(issues, diagnoses, actions) {
   ).join('') + feed.innerHTML;
 }
 
-// ── API call counter ───────────────────────────────────────────────────────────
-const API_CALL_LIMIT = 5000;
-let _apiCallCount = 0;
-let _apiTotalSecs  = 0;
-let _apiFlashTimer = null;
-const _apiEndpointCounts = {};  // label→count for per-endpoint breakdown
-
-function _endpointLabel(path) {
-  if (!path) return 'other';
-  if (path.includes('/stats/devices'))  return 'stats/devices';
-  if (path.includes('/stats/clients'))  return 'stats/clients';
-  if (path.includes('/stats/'))         return 'stats/site';
-  if (path.includes('/alarms'))         return 'alarms';
-  if (path.includes('/devices'))        return 'devices';
-  if (path.includes('/wlans'))          return 'wlans';
-  if (path.includes('/clients'))        return 'clients';
-  if (path.includes('/logs'))           return 'audit-logs';
-  if (path.includes('/self-driving'))   return 'self-driving';
-  if (path.includes('/chat'))           return 'ai-chat';
-  if (path.includes('/self'))           return 'self';
-  if (path.includes('/sites'))          return 'sites';
-  if (path.includes('/orgs'))           return 'org';
-  return 'other';
-}
-
-function _renderEpBreakdown() {
-  const epList = document.getElementById('api-ep-list');
-  if (!epList) return;
-  const entries = Object.entries(_apiEndpointCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  if (!entries.length) return;
-  const maxVal = entries[0][1];
-  epList.textContent = '';
-  entries.forEach(([ep, n]) => {
-    const row = document.createElement('div');
-    row.className = 'api-ep-row';
-    const name = document.createElement('span');
-    name.className = 'api-ep-name';
-    name.textContent = ep;
-    const barWrap = document.createElement('div');
-    barWrap.className = 'api-ep-bar-wrap';
-    const bar = document.createElement('div');
-    bar.className = 'api-ep-bar';
-    bar.style.width = Math.round(n / maxVal * 100) + '%';
-    barWrap.appendChild(bar);
-    const cnt = document.createElement('span');
-    cnt.className = 'api-ep-count';
-    cnt.textContent = String(n);
-    row.appendChild(name);
-    row.appendChild(barWrap);
-    row.appendChild(cnt);
-    epList.appendChild(row);
-  });
-  epList.classList.add('has-data');
-}
-
-function _renderApiWidget(count, secs) {
-  const widget = document.getElementById('api-counter-widget');
-  if (!widget) return;
-  widget.style.display = 'block';
-
-  const pct  = Math.min(count / API_CALL_LIMIT * 100, 100);
-  const tier = count >= API_CALL_LIMIT * 0.8 ? 'danger' : count >= API_CALL_LIMIT * 0.5 ? 'warn' : '';
-
-  const fill = document.getElementById('api-ctr-fill');
-  if (fill) { fill.style.width = pct + '%'; fill.className = 'api-ctr-fill' + (tier ? ' ' + tier : ''); }
-
-  const val = document.getElementById('api-ctr-value');
-  if (val) { val.textContent = count + '/' + API_CALL_LIMIT; val.className = 'api-ctr-value' + (tier ? ' ' + tier : ''); }
-
-  const sub = document.getElementById('api-ctr-sub');
-  if (sub) sub.textContent = (secs !== undefined ? secs.toFixed(1) : _apiTotalSecs.toFixed(1)) + 's · this session';
-
-  _renderEpBreakdown();
-
-  // Subtle flash on each update
-  clearTimeout(_apiFlashTimer);
-  widget.classList.remove('api-flashing');
-  requestAnimationFrame(() => {
-    widget.classList.add('api-flashing');
-    _apiFlashTimer = setTimeout(() => widget.classList.remove('api-flashing'), 700);
-  });
-}
-
-function _incrementApiCounter(path) {
-  _apiCallCount++;
-  const label = _endpointLabel(path);
-  _apiEndpointCounts[label] = (_apiEndpointCounts[label] || 0) + 1;
-  _renderApiWidget(_apiCallCount);
-}
-
 async function _syncApiCounter() {
   try {
     const d = await (await fetch('/api/v1/usage')).json();
-    if ((d.mist_api_calls || 0) > _apiCallCount) _apiCallCount = d.mist_api_calls;
-    _apiTotalSecs = d.total_seconds || _apiTotalSecs;
-    _renderApiWidget(_apiCallCount, _apiTotalSecs);
+    if ((d.mist_api_calls || 0) > _mistApiCount) _mistApiCount = d.mist_api_calls;
+    _mistTotalSecs = d.total_seconds || _mistTotalSecs;
+    _renderApiWidget(_mistApiCount, _mistTotalSecs);
   } catch(_) {}
 }
-
-// Patch mist() to count calls
-const _origMist = mist;
-window.mist = async function(path, opts={}) {
-  _incrementApiCounter(path);
-  return _origMist(path, opts);
-};
 
 // ── AI Hover Tooltip ───────────────────────────────────────────────────────────
 const _hoverCache = new Map();
