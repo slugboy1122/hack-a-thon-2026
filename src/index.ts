@@ -27,8 +27,8 @@ interface MistEventParams {
 
 interface MistCtx {
   token: string;
-  session: string; // Mist session cookie (email/password login)
-  csrf: string;    // csrftoken cookie value — sent as X-CSRFToken on session-auth requests
+  session: string;
+  csrf: string;
   base: string;
 }
 
@@ -984,127 +984,29 @@ async function dispatch(
   if (path === '/api/validate' && method === 'GET') {
     const tok = (request.headers.get('X-Mist-Token') || '').trim();
     if (!tok) return json({ error: 'No token provided' }, 400);
-    const r = await mistFetch({ token: tok, session: '', base: mctx.base }, 'GET', '/self');
+    const r = await mistFetch({ token: tok, session: '', csrf: '', base: mctx.base }, 'GET', '/self');
     if (r.status === 200) {
       const d = await r.json() as Record<string, unknown>;
-      return json({ email: d.email || '', name: d.name || '', privileges: d.privileges || [] });
+      const email = String(d.email || '');
+      const domain = (email.split('@')[1] ?? '').toLowerCase();
+      if (domain !== 'hpe.com' && domain !== 'juniper.net') {
+        return json({ error: 'Access restricted to @hpe.com and @juniper.net accounts.' }, 403);
+      }
+      const privs = (d.privileges as Array<Record<string, unknown>>) || [];
+      const orgPriv = privs.find((p) => p.scope === 'org') ?? privs[0] ?? null;
+      return json({
+        email,
+        name: d.name || '',
+        org_id: orgPriv?.org_id ?? '',
+        role: orgPriv?.role ?? '',
+        privileges: privs,
+      });
     }
     return json({ error: 'Invalid token' }, 401);
   }
 
-  // ── Email/password login ───────────────────────────────────────────────────────
-  if (path === '/api/v1/login' && method === 'POST') {
-    const body = await request.json() as { email?: string; password?: string };
-    if (!body.email || !body.password) return json({ error: 'email and password required' }, 400);
-    const r = await fetch(`${mctx.base}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: body.email, password: body.password }),
-    });
-    const rawBody = await r.text();
-    if (r.status !== 200) {
-      let detail = 'Login failed';
-      try { detail = (JSON.parse(rawBody) as Record<string, unknown>).detail as string || detail; } catch { /* ok */ }
-      return json({ error: detail }, 401);
-    }
-
-    // CF Workers: headers.get('set-cookie') returns only the first value.
-    // Iterate all header entries to extract both session and csrftoken cookies (mistapi_python pattern).
-    let session = '';
-    let csrf = '';
-    for (const [k, v] of r.headers.entries()) {
-      if (k.toLowerCase() === 'set-cookie') {
-        const sm = v.match(/\bsession=([^;,\s]+)/i);
-        if (sm) session = sm[1];
-        const cm = v.match(/\bcsrftoken(?:_[^=]*)?\s*=\s*([^;,\s]+)/i);
-        if (cm) csrf = cm[1];
-      }
-    }
-    if (!session) {
-      // Mist returns 200 with no cookie for SSO-federated accounts.
-      // Probe the portal SSO endpoint to get the org-configured IdP redirect URL.
-      let ssoUrl: string | null = null;
-      try {
-        const ssoResp = await fetch(
-          `${mctx.base}/login/sso?email=${encodeURIComponent(body.email)}`,
-          { redirect: 'manual' }
-        );
-        if (ssoResp.status === 302 || ssoResp.status === 301) {
-          ssoUrl = ssoResp.headers.get('Location');
-        } else if (ssoResp.status === 200) {
-          const ssoBody = await ssoResp.json() as Record<string, unknown>;
-          ssoUrl = (ssoBody.url ?? ssoBody.sso_url ?? ssoBody.redirect) as string | null;
-        }
-      } catch { /* ok — fall through to token guidance */ }
-
-      return json({ error: 'sso_required', sso_url: ssoUrl, email: body.email }, 403);
-    }
-
-    const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}` } });
-    const self = await selfR.json() as Record<string, unknown>;
-    const twoFactorRequired = !!(self.two_factor_required && !self.two_factor_passed);
-
-    let privs = (self.privileges as Array<Record<string, unknown>>) || [];
-    // Mist sometimes omits privileges[] but sets org_id at the top level
-    if (!privs.some((p) => p.org_id) && self.org_id) {
-      privs = [{ scope: 'org', org_id: self.org_id, role: 'admin', name: self.email || body.email }];
-    }
-
-    return json({
-      session,
-      csrf_token: csrf,
-      two_factor_required: twoFactorRequired,
-      email: self.email || body.email,
-      name: [self.first_name, self.last_name].filter(Boolean).join(' '),
-      privileges: privs,
-    });
-  }
-
-  // ── 2FA verification ──────────────────────────────────────────────────────────
-  if (path === '/api/v1/login/two_factor' && method === 'POST') {
-    const body = await request.json() as { two_factor?: string };
-    const session = mctx.session;
-    if (!session) return json({ error: 'No session' }, 400);
-    if (!body.two_factor) return json({ error: 'two_factor code required' }, 400);
-    const r = await fetch(`${mctx.base}/login/two_factor`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: `session=${session}`, ...(mctx.csrf ? { 'X-CSRFToken': mctx.csrf } : {}) },
-      body: JSON.stringify({ two_factor: body.two_factor }),
-    });
-    if (r.status !== 200) return json({ error: 'Invalid 2FA code' }, 401);
-    // Mist may refresh csrftoken on 2FA completion — capture it if present
-    let csrf = mctx.csrf;
-    for (const [k, v] of r.headers.entries()) {
-      if (k.toLowerCase() === 'set-cookie') {
-        const cm = v.match(/\bcsrftoken(?:_[^=]*)?\s*=\s*([^;,\s]+)/i);
-        if (cm) { csrf = cm[1]; break; }
-      }
-    }
-    const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}`, ...(csrf ? { 'X-CSRFToken': csrf } : {}) } });
-    const self = await selfR.json() as Record<string, unknown>;
-
-    let privs = (self.privileges as Array<Record<string, unknown>>) || [];
-    if (!privs.some((p) => p.org_id) && self.org_id) {
-      privs = [{ scope: 'org', org_id: self.org_id, role: 'admin', name: self.email || '' }];
-    }
-
-    return json({
-      session,
-      csrf_token: csrf,
-      email: self.email || '',
-      name: [self.first_name, self.last_name].filter(Boolean).join(' '),
-      privileges: privs,
-    });
-  }
-
   // ── Logout ────────────────────────────────────────────────────────────────────
   if (path === '/api/v1/logout' && method === 'POST') {
-    if (mctx.session) {
-      await fetch(`${mctx.base}/logout`, {
-        method: 'POST',
-        headers: { Cookie: `session=${mctx.session}` },
-      });
-    }
     return json({ ok: true });
   }
 

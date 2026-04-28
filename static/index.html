@@ -754,12 +754,7 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
         <div class="connect-sub">Tatooine · Mist Network Intelligence</div>
       </div>
     </div>
-    <div style="display:flex;gap:0;margin-bottom:18px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
-      <button id="auth-tab-token" onclick="setAuthMode('token')" style="flex:1;padding:7px 0;font-family:var(--mono);font-size:11px;border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:600">API Token</button>
-      <button id="auth-tab-login" onclick="setAuthMode('login')" style="flex:1;padding:7px 0;font-family:var(--mono);font-size:11px;border:none;cursor:pointer;background:var(--bg3);color:var(--muted2);font-weight:400">Email / Password</button>
-    </div>
-
-    <!-- Cloud region shared by both modes -->
+    <!-- Cloud region -->
     <div class="login-field">
       <div class="login-label">Cloud Region</div>
       <select id="connect-cloud" class="login-input" style="appearance:none;-webkit-appearance:none;cursor:pointer">
@@ -778,66 +773,22 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
       </select>
     </div>
 
-    <!-- Token mode -->
     <div id="connect-token-section">
+      <div class="login-field">
+        <div class="login-label">Work Email</div>
+        <input id="connect-email" class="login-input" type="email"
+          placeholder="you@hpe.com or you@juniper.net"
+          oninput="onConnectInput()"
+          onkeydown="if(event.key==='Enter')doConnect()">
+      </div>
       <div class="login-field">
         <div class="login-label">Mist API Token</div>
         <input id="connect-token" class="login-input" type="password"
           placeholder="Paste your Mist API token"
-          oninput="onConnectTokenInput()"
+          oninput="onConnectInput()"
           onkeydown="if(event.key==='Enter')doConnect()">
       </div>
       <button id="connect-btn" onclick="doConnect()" disabled>Connect →</button>
-    </div>
-
-    <!-- Email/password mode -->
-    <div id="connect-login-section" style="display:none">
-      <div class="login-field">
-        <div class="login-label">Email</div>
-        <input id="connect-email" class="login-input" type="email"
-          placeholder="you@example.com"
-          oninput="onLoginInput()"
-          onkeydown="if(event.key==='Enter')doLoginConnect()">
-      </div>
-      <div class="login-field">
-        <div class="login-label">Password</div>
-        <input id="connect-password" class="login-input" type="password"
-          placeholder="Mist password"
-          oninput="onLoginInput()"
-          onkeydown="if(event.key==='Enter')doLoginConnect()">
-      </div>
-      <button id="login-btn" onclick="doLoginConnect()" disabled>Sign In →</button>
-    </div>
-
-    <!-- 2FA prompt (shown over either mode after login) -->
-    <div id="connect-2fa-section" style="display:none">
-      <div style="font-family:var(--mono);font-size:11px;color:var(--muted2);margin-bottom:14px">Two-factor authentication is required for your account.</div>
-      <div class="login-field">
-        <div class="login-label">Authenticator Code</div>
-        <input id="connect-2fa" class="login-input" type="text"
-          placeholder="6-digit code" maxlength="6" inputmode="numeric"
-          onkeydown="if(event.key==='Enter')doTwoFactor()">
-      </div>
-      <button id="tfa-btn" onclick="doTwoFactor()">Verify →</button>
-    </div>
-
-    <!-- SSO flow (shown when Mist detects an SSO-federated account) -->
-    <div id="connect-sso-section" style="display:none">
-      <div style="font-family:var(--mono);font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
-        Your account uses <span style="color:var(--accent2)" id="sso-domain-label">SSO</span>.<br>
-        Sign in via your organization's portal, then paste your API token below.
-      </div>
-      <button id="sso-launch-btn" onclick="launchSsoPortal()" style="width:100%;padding:11px;background:rgba(90,184,216,0.08);border:1px solid var(--accent2);color:var(--accent2);font-family:var(--mono);font-size:12px;letter-spacing:0.08em;cursor:pointer;margin-bottom:12px;transition:all var(--transition)">
-        Open SSO Sign-In Portal ↗
-      </button>
-      <div class="login-field">
-        <div class="login-label">API Token <span style="color:var(--muted);font-size:9px">(from Mist → My Profile → API Token)</span></div>
-        <input id="sso-token-input" class="login-input" type="password"
-          placeholder="Paste API token after signing in"
-          oninput="onSsoTokenInput()"
-          onkeydown="if(event.key==='Enter')doSsoTokenConnect()">
-      </div>
-      <button id="sso-connect-btn" onclick="doSsoTokenConnect()" disabled>Connect →</button>
     </div>
 
     <div id="connect-org-picker" style="display:none">
@@ -845,11 +796,8 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
       <div id="connect-org-list"></div>
     </div>
     <div id="connect-error"></div>
-    <div class="connect-footer" id="connect-footer-token">
+    <div class="connect-footer">
       API token: <a href="https://manage.mist.com/user.html#!api" target="_blank">manage.mist.com → My Profile → API Token</a>
-    </div>
-    <div class="connect-footer" id="connect-footer-login" style="display:none">
-      Uses your Mist Cloud login credentials. 2FA is supported.
     </div>
   </div>
 </div>
@@ -1519,155 +1467,47 @@ let chatHistory = [];
 let tshootType = 'wireless';
 
 // ── Connect modal ──────────────────────────────────────────────────────────────
-let _connectPending = { token: null, session: null, csrf: null, selfData: null, privs: [], host: null };
-let _authMode = 'token';
-let _pendingSsoUrl = null;
-let _pendingSsoHost = '';
+let _connectPending = { token: null, selfData: null, privs: [], host: null };
 
-function setAuthMode(mode) {
-  _authMode = mode;
-  const isToken = mode === 'token';
-  document.getElementById('connect-token-section').style.display  = isToken ? '' : 'none';
-  document.getElementById('connect-login-section').style.display  = isToken ? 'none' : '';
-  document.getElementById('connect-footer-token').style.display   = isToken ? '' : 'none';
-  document.getElementById('connect-footer-login').style.display   = isToken ? 'none' : '';
-  document.getElementById('auth-tab-token').style.background  = isToken ? 'var(--accent)' : 'var(--bg3)';
-  document.getElementById('auth-tab-token').style.color       = isToken ? '#fff' : 'var(--muted2)';
-  document.getElementById('auth-tab-token').style.fontWeight  = isToken ? '600' : '400';
-  document.getElementById('auth-tab-login').style.background  = isToken ? 'var(--bg3)' : 'var(--accent)';
-  document.getElementById('auth-tab-login').style.color       = isToken ? 'var(--muted2)' : '#fff';
-  document.getElementById('auth-tab-login').style.fontWeight  = isToken ? '400' : '600';
-  document.getElementById('connect-error').textContent = '';
-  if (isToken) setTimeout(() => document.getElementById('connect-token').focus(), 60);
-  else setTimeout(() => document.getElementById('connect-email').focus(), 60);
+const ALLOWED_DOMAINS = ['hpe.com', 'juniper.net'];
+
+function _emailAllowed(email) {
+  const domain = email.split('@')[1] || '';
+  return ALLOWED_DOMAINS.includes(domain.toLowerCase());
 }
 
 function openConnectModal() {
   document.getElementById('connect-modal').classList.add('open');
   document.getElementById('connect-error').textContent = '';
-  document.getElementById('connect-2fa-section').style.display = 'none';
   document.getElementById('connect-org-picker').style.display = 'none';
-  setAuthMode(_authMode);
+  setTimeout(() => document.getElementById('connect-email').focus(), 60);
 }
 
 function closeConnectModal() {
   document.getElementById('connect-modal').classList.remove('open');
 }
 
-function onConnectTokenInput() {
-  const tok = document.getElementById('connect-token').value.trim();
-  const btn = document.getElementById('connect-btn');
-  const ready = tok.length > 20;
-  btn.disabled = !ready;
-  btn.className = ready ? 'ready' : '';
-}
-
-function onLoginInput() {
+function onConnectInput() {
   const email = document.getElementById('connect-email').value.trim();
-  const pass  = document.getElementById('connect-password').value;
-  const btn   = document.getElementById('login-btn');
-  const ready = email.includes('@') && pass.length > 0;
+  const tok   = document.getElementById('connect-token').value.trim();
+  const btn   = document.getElementById('connect-btn');
+  const ready = _emailAllowed(email) && tok.length > 20;
   btn.disabled = !ready;
   btn.className = ready ? 'ready' : '';
 }
 
-async function doLoginConnect() {
-  const email    = document.getElementById('connect-email').value.trim();
-  const password = document.getElementById('connect-password').value;
-  const host     = document.getElementById('connect-cloud').value;
-  const err      = document.getElementById('connect-error');
-  const btn      = document.getElementById('login-btn');
-  err.textContent = '';
-  btn.disabled = true; btn.className = ''; btn.textContent = 'Signing in...';
-  try {
-    const r = await fetch('/api/v1/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Mist-Host': host },
-      body: JSON.stringify({ email, password }),
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      if (d.error === 'sso_required') {
-        _pendingSsoUrl  = d.sso_url || null;
-        _pendingSsoHost = host;
-        document.getElementById('connect-login-section').style.display = 'none';
-        document.getElementById('connect-footer-login').style.display  = 'none';
-        document.getElementById('connect-sso-section').style.display   = '';
-        document.getElementById('sso-domain-label').textContent = email.split('@')[1] + ' SSO';
-        document.getElementById('connect-footer-token').style.display  = 'none';
-        err.textContent = '';
-      } else {
-        err.textContent = d.error || 'Login failed — check your credentials.';
-      }
-      btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
-      return;
-    }
-    _connectPending = { token: null, session: d.session, csrf: d.csrf_token || null, selfData: d, privs: d.privileges, host };
-    if (d.two_factor_required) {
-      document.getElementById('connect-login-section').style.display = 'none';
-      document.getElementById('connect-2fa-section').style.display = '';
-      setTimeout(() => document.getElementById('connect-2fa').focus(), 60);
-      btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
-      return;
-    }
-    _finishLogin(d);
-  } catch(e) {
-    err.textContent = 'Connection error: ' + e.message;
-    btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
-  }
-}
-
-function launchSsoPortal() {
-  const url = _pendingSsoUrl || 'https://manage.mist.com';
-  window.open(url, '_blank', 'width=960,height=720,noopener');
-}
-
-function onSsoTokenInput() {
-  const val = document.getElementById('sso-token-input').value.trim();
-  const btn = document.getElementById('sso-connect-btn');
-  btn.disabled = !val;
-  btn.className = val ? 'ready' : '';
-}
-
-async function doSsoTokenConnect() {
-  const token = document.getElementById('sso-token-input').value.trim();
-  if (!token) return;
-  document.getElementById('connect-token').value = token;
-  setAuthMode('token');
-  await doConnect();
-}
-
-async function doTwoFactor() {
-  const code = document.getElementById('connect-2fa').value.trim();
-  const err  = document.getElementById('connect-error');
-  const btn  = document.getElementById('tfa-btn');
-  if (!code) return;
-  err.textContent = '';
-  btn.disabled = true; btn.textContent = 'Verifying...';
-  try {
-    const r = await fetch('/api/v1/login/two_factor', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Mist-Session': _connectPending.session,
-        'X-Mist-Host': _connectPending.host || '',
-        ...(_connectPending.csrf ? { 'X-Mist-Csrf': _connectPending.csrf } : {}),
-      },
-      body: JSON.stringify({ two_factor: code }),
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      err.textContent = d.error || 'Invalid code — try again.';
-      btn.disabled = false; btn.textContent = 'Verify →';
-      document.getElementById('connect-2fa').value = '';
-      return;
-    }
-    if (d.csrf_token) _connectPending.csrf = d.csrf_token;
-    _finishLogin(d);
-  } catch(e) {
-    err.textContent = 'Verification error: ' + e.message;
-    btn.disabled = false; btn.textContent = 'Verify →';
-  }
+function _buildOrgList(list, privs) {
+  list.textContent = '';
+  privs.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'org-option';
+    div.onclick = () => _doSelectOrg(null, null, null, i);
+    const nm = document.createElement('div'); nm.className = 'org-option-name'; nm.textContent = p.name || 'Organization';
+    const id = document.createElement('div'); id.className = 'org-option-id';   id.textContent = p.org_id;
+    const ro = document.createElement('div'); ro.className = 'org-option-role'; ro.textContent = p.role || 'member';
+    div.append(nm, id, ro);
+    list.appendChild(div);
+  });
 }
 
 function _finishLogin(d) {
@@ -1684,32 +1524,29 @@ function _finishLogin(d) {
   if (privs.length === 1) {
     _doSelectOrg(null, d, privs[0]);
   } else {
-    document.getElementById('connect-login-section').style.display = 'none';
-    document.getElementById('connect-2fa-section').style.display = 'none';
     const list = document.getElementById('connect-org-list');
-    list.innerHTML = privs.map((p, i) => `
-      <div class="org-option" onclick="_doSelectOrg(null,null,null,${i})">
-        <div class="org-option-name">${p.name || 'Organization'}</div>
-        <div class="org-option-id">${p.org_id}</div>
-        <div class="org-option-role">${p.role || 'member'}</div>
-      </div>`).join('');
+    _buildOrgList(list, privs);
     document.getElementById('connect-org-picker').style.display = '';
   }
 }
 
 async function doConnect() {
+  const email = document.getElementById('connect-email').value.trim();
   const token = document.getElementById('connect-token').value.trim();
   const host  = document.getElementById('connect-cloud').value;
   const err   = document.getElementById('connect-error');
   const btn   = document.getElementById('connect-btn');
   err.textContent = '';
+  if (!_emailAllowed(email)) {
+    err.textContent = 'Access restricted to @hpe.com and @juniper.net accounts.';
+    return;
+  }
   if (token.length < 20) return;
   btn.disabled = true; btn.className = ''; btn.textContent = 'Connecting...';
   try {
     const r = await fetch('/api/validate', { headers: { 'X-Mist-Token': token, 'X-Mist-Host': host } });
     const d = await r.json();
     if (r.ok && d.email !== undefined) {
-      // Deduplicate privileges by org_id
       const orgMap = new Map();
       for (const p of (d.privileges || [])) {
         if (p.org_id && !orgMap.has(p.org_id)) orgMap.set(p.org_id, p);
@@ -1720,19 +1557,13 @@ async function doConnect() {
         btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Connect →';
         return;
       }
+      _connectPending = { token, selfData: d, privs, host };
       if (privs.length === 1) {
-        _connectPending = { token, selfData: d, privs, host };
         _doSelectOrg(token, d, privs[0]);
       } else {
-        _connectPending = { token, selfData: d, privs, host };
         document.getElementById('connect-token-section').style.display = 'none';
         const list = document.getElementById('connect-org-list');
-        list.innerHTML = privs.map((p, i) => `
-          <div class="org-option" onclick="_doSelectOrg(null,null,null,${i})">
-            <div class="org-option-name">${p.name || 'Organization'}</div>
-            <div class="org-option-id">${p.org_id}</div>
-            <div class="org-option-role">${p.role || 'member'}</div>
-          </div>`).join('');
+        _buildOrgList(list, privs);
         document.getElementById('connect-org-picker').style.display = '';
       }
     } else {
@@ -1770,12 +1601,9 @@ function _doSelectOrg(token, selfData, priv, idx) {
   sessionStorage.setItem('tat_self',  JSON.stringify(SESSION.self));
   // Reset modal state
   document.getElementById('connect-token-section').style.display = '';
-  document.getElementById('connect-login-section').style.display = 'none';
-  document.getElementById('connect-2fa-section').style.display   = 'none';
   document.getElementById('connect-org-picker').style.display    = 'none';
   document.getElementById('connect-token').value = '';
   document.getElementById('connect-email').value = '';
-  document.getElementById('connect-password').value = '';
   document.getElementById('connect-btn').disabled = true;
   document.getElementById('connect-btn').className = '';
   document.getElementById('connect-btn').textContent = 'Connect →';
@@ -1806,9 +1634,6 @@ function toggleTheme() {
 })();
 
 function logout() {
-  if (SESSION.session) {
-    fetch('/api/v1/logout', { method: 'POST', headers: { 'X-Mist-Session': SESSION.session, 'X-Mist-Host': SESSION.host || '', ...(SESSION.csrf ? { 'X-Mist-Csrf': SESSION.csrf } : {}) } }).catch(() => {});
-  }
   sessionStorage.removeItem('tat_token');
   sessionStorage.removeItem('tat_session');
   sessionStorage.removeItem('tat_csrf');
@@ -1819,6 +1644,7 @@ function logout() {
   document.getElementById('login-screen').style.display = 'flex';
   // Reset connect modal
   document.getElementById('connect-token').value = '';
+  document.getElementById('connect-email').value = '';
   document.getElementById('connect-btn').disabled = true;
   document.getElementById('connect-btn').className = '';
   document.getElementById('connect-btn').textContent = 'Connect →';
@@ -1830,10 +1656,7 @@ function logout() {
 
 // ── Auth headers helper ────────────────────────────────────────────────────────
 function authHeaders() {
-  if (SESSION.token) return { 'X-Mist-Token': SESSION.token, 'X-Mist-Host': SESSION.host || '' };
-  const h = { 'X-Mist-Session': SESSION.session || '', 'X-Mist-Host': SESSION.host || '' };
-  if (SESSION.csrf) h['X-Mist-Csrf'] = SESSION.csrf;
-  return h;
+  return { 'X-Mist-Token': SESSION.token || '', 'X-Mist-Host': SESSION.host || '' };
 }
 
 // ── API call counter state (declared here so mist() can reference them) ───────
@@ -1904,20 +1727,13 @@ function _renderApiWidget(count, secs) {
 
 // ── API proxy ──────────────────────────────────────────────────────────────────
 async function mist(path, opts = {}) {
-  if (!SESSION.token && !SESSION.session) { logout(); throw new Error('Not authenticated'); }
+  if (!SESSION.token) { logout(); throw new Error('Not authenticated'); }
   _mistApiCount++;
   _mistEpCounts[_mistEpLabel(path)] = (_mistEpCounts[_mistEpLabel(path)] || 0) + 1;
   _renderApiWidget(_mistApiCount);
-  let ah;
-  if (SESSION.token) {
-    ah = { 'X-Mist-Token': SESSION.token };
-  } else {
-    ah = { 'X-Mist-Session': SESSION.session };
-    if (SESSION.csrf) ah['X-Mist-Csrf'] = SESSION.csrf;
-  }
   const r = await fetch('/api/v1' + path, {
     method: opts.method || 'GET',
-    headers: { 'Content-Type': 'application/json', 'X-Mist-Host': SESSION.host || '', ...ah },
+    headers: { 'Content-Type': 'application/json', 'X-Mist-Host': SESSION.host || '', 'X-Mist-Token': SESSION.token },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
