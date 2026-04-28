@@ -28,6 +28,7 @@ interface MistEventParams {
 interface MistCtx {
   token: string;
   session: string; // Mist session cookie (email/password login)
+  csrf: string;    // csrftoken cookie value — sent as X-CSRFToken on session-auth requests
   base: string;
 }
 
@@ -77,7 +78,7 @@ function handleCors(): Response {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Mist-Token, X-Mist-Host, X-Mist-Session, X-Tatooine-Confirm, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Mist-Token, X-Mist-Host, X-Mist-Session, X-Mist-Csrf, X-Tatooine-Confirm, Authorization',
       'Access-Control-Max-Age': '86400',
     },
   });
@@ -99,6 +100,10 @@ function getToken(request: Request, env: Env): string {
 
 function getSession(request: Request): string {
   return request.headers.get('X-Mist-Session') || '';
+}
+
+function getCsrf(request: Request): string {
+  return request.headers.get('X-Mist-Csrf') || '';
 }
 
 // Blocks live-write endpoints unless the caller explicitly acknowledges
@@ -126,7 +131,7 @@ async function mistFetch(
     }
   }
   const authHeader: Record<string, string> = mctx.session
-    ? { Cookie: `session=${mctx.session}` }
+    ? { Cookie: `session=${mctx.session}`, ...(mctx.csrf ? { 'X-CSRFToken': mctx.csrf } : {}) }
     : { Authorization: `Token ${mctx.token}` };
   return fetch(u.toString(), {
     method,
@@ -935,7 +940,7 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
-    const mctx: MistCtx = { token: getToken(request, env), session: getSession(request), base: getMistBase(request, env) };
+    const mctx: MistCtx = { token: getToken(request, env), session: getSession(request), csrf: getCsrf(request), base: getMistBase(request, env) };
     const broadcaster = env.BROADCASTER.get(env.BROADCASTER.idFromName('main'));
 
     try {
@@ -1003,12 +1008,15 @@ async function dispatch(
     }
 
     // CF Workers: headers.get('set-cookie') returns only the first value.
-    // Iterate all header entries to find the session cookie across any Set-Cookie line.
+    // Iterate all header entries to extract both session and csrftoken cookies (mistapi_python pattern).
     let session = '';
+    let csrf = '';
     for (const [k, v] of r.headers.entries()) {
       if (k.toLowerCase() === 'set-cookie') {
-        const m = v.match(/\bsession=([^;,\s]+)/i);
-        if (m) { session = m[1]; break; }
+        const sm = v.match(/\bsession=([^;,\s]+)/i);
+        if (sm) session = sm[1];
+        const cm = v.match(/\bcsrftoken(?:_[^=]*)?\s*=\s*([^;,\s]+)/i);
+        if (cm) csrf = cm[1];
       }
     }
     if (!session) {
@@ -1043,6 +1051,7 @@ async function dispatch(
 
     return json({
       session,
+      csrf_token: csrf,
       two_factor_required: twoFactorRequired,
       email: self.email || body.email,
       name: [self.first_name, self.last_name].filter(Boolean).join(' '),
@@ -1058,11 +1067,19 @@ async function dispatch(
     if (!body.two_factor) return json({ error: 'two_factor code required' }, 400);
     const r = await fetch(`${mctx.base}/login/two_factor`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: `session=${session}` },
+      headers: { 'Content-Type': 'application/json', Cookie: `session=${session}`, ...(mctx.csrf ? { 'X-CSRFToken': mctx.csrf } : {}) },
       body: JSON.stringify({ two_factor: body.two_factor }),
     });
     if (r.status !== 200) return json({ error: 'Invalid 2FA code' }, 401);
-    const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}` } });
+    // Mist may refresh csrftoken on 2FA completion — capture it if present
+    let csrf = mctx.csrf;
+    for (const [k, v] of r.headers.entries()) {
+      if (k.toLowerCase() === 'set-cookie') {
+        const cm = v.match(/\bcsrftoken(?:_[^=]*)?\s*=\s*([^;,\s]+)/i);
+        if (cm) { csrf = cm[1]; break; }
+      }
+    }
+    const selfR = await fetch(`${mctx.base}/self`, { headers: { Cookie: `session=${session}`, ...(csrf ? { 'X-CSRFToken': csrf } : {}) } });
     const self = await selfR.json() as Record<string, unknown>;
 
     let privs = (self.privileges as Array<Record<string, unknown>>) || [];
@@ -1072,6 +1089,7 @@ async function dispatch(
 
     return json({
       session,
+      csrf_token: csrf,
       email: self.email || '',
       name: [self.first_name, self.last_name].filter(Boolean).join(' '),
       privileges: privs,

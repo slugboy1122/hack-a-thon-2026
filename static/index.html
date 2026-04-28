@@ -1488,7 +1488,8 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
 let ORG_ID = sessionStorage.getItem('tat_orgid') || '';
 const SESSION = {
   token:   sessionStorage.getItem('tat_token') || null,
-  session: sessionStorage.getItem('tat_session') || null, // email/password login session cookie
+  session: sessionStorage.getItem('tat_session') || null, // Mist session cookie (email/password login)
+  csrf:    sessionStorage.getItem('tat_csrf') || null,    // X-CSRFToken — required for session-auth writes (mistapi_python pattern)
   self:    JSON.parse(sessionStorage.getItem('tat_self') || 'null'),
   host:    sessionStorage.getItem('tat_host') || 'api.mist.com',
 };
@@ -1501,7 +1502,7 @@ let chatHistory = [];
 let tshootType = 'wireless';
 
 // ── Connect modal ──────────────────────────────────────────────────────────────
-let _connectPending = { token: null, session: null, selfData: null, privs: [], host: null };
+let _connectPending = { token: null, session: null, csrf: null, selfData: null, privs: [], host: null };
 let _authMode = 'token';
 let _pendingSsoUrl = null;
 let _pendingSsoHost = '';
@@ -1584,7 +1585,7 @@ async function doLoginConnect() {
       btn.disabled = false; btn.className = 'ready'; btn.textContent = 'Sign In →';
       return;
     }
-    _connectPending = { token: null, session: d.session, selfData: d, privs: d.privileges, host };
+    _connectPending = { token: null, session: d.session, csrf: d.csrf_token || null, selfData: d, privs: d.privileges, host };
     if (d.two_factor_required) {
       document.getElementById('connect-login-section').style.display = 'none';
       document.getElementById('connect-2fa-section').style.display = '';
@@ -1629,7 +1630,12 @@ async function doTwoFactor() {
   try {
     const r = await fetch('/api/v1/login/two_factor', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Mist-Session': _connectPending.session, 'X-Mist-Host': _connectPending.host || '' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Mist-Session': _connectPending.session,
+        'X-Mist-Host': _connectPending.host || '',
+        ...(_connectPending.csrf ? { 'X-Mist-Csrf': _connectPending.csrf } : {}),
+      },
       body: JSON.stringify({ two_factor: code }),
     });
     const d = await r.json();
@@ -1639,6 +1645,7 @@ async function doTwoFactor() {
       document.getElementById('connect-2fa').value = '';
       return;
     }
+    if (d.csrf_token) _connectPending.csrf = d.csrf_token;
     _finishLogin(d);
   } catch(e) {
     err.textContent = 'Verification error: ' + e.message;
@@ -1728,15 +1735,19 @@ function _doSelectOrg(token, selfData, priv, idx) {
     priv     = _connectPending.privs[idx];
   }
   const session = _connectPending.session || null;
+  const csrf    = _connectPending.csrf    || null;
   ORG_ID = priv.org_id;
   SESSION.token   = token;
   SESSION.session = session;
+  SESSION.csrf    = csrf;
   SESSION.host    = _connectPending.host || 'api.mist.com';
   SESSION.self    = { ...selfData, org_id: priv.org_id };
   if (token)   sessionStorage.setItem('tat_token',   token);
   else         sessionStorage.removeItem('tat_token');
   if (session) sessionStorage.setItem('tat_session', session);
   else         sessionStorage.removeItem('tat_session');
+  if (csrf)    sessionStorage.setItem('tat_csrf',    csrf);
+  else         sessionStorage.removeItem('tat_csrf');
   sessionStorage.setItem('tat_host',  SESSION.host);
   sessionStorage.setItem('tat_orgid', priv.org_id);
   sessionStorage.setItem('tat_self',  JSON.stringify(SESSION.self));
@@ -1779,13 +1790,14 @@ function toggleTheme() {
 
 function logout() {
   if (SESSION.session) {
-    fetch('/api/v1/logout', { method: 'POST', headers: { 'X-Mist-Session': SESSION.session, 'X-Mist-Host': SESSION.host || '' } }).catch(() => {});
+    fetch('/api/v1/logout', { method: 'POST', headers: { 'X-Mist-Session': SESSION.session, 'X-Mist-Host': SESSION.host || '', ...(SESSION.csrf ? { 'X-Mist-Csrf': SESSION.csrf } : {}) } }).catch(() => {});
   }
   sessionStorage.removeItem('tat_token');
   sessionStorage.removeItem('tat_session');
+  sessionStorage.removeItem('tat_csrf');
   sessionStorage.removeItem('tat_self');
   sessionStorage.removeItem('tat_orgid');
-  SESSION.token = null; SESSION.session = null; SESSION.self = null; ORG_ID = '';
+  SESSION.token = null; SESSION.session = null; SESSION.csrf = null; SESSION.self = null; ORG_ID = '';
   document.getElementById('app-shell').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   // Reset connect modal
@@ -1801,20 +1813,25 @@ function logout() {
 
 // ── Auth headers helper ────────────────────────────────────────────────────────
 function authHeaders() {
-  return SESSION.token
-    ? { 'X-Mist-Token': SESSION.token, 'X-Mist-Host': SESSION.host || '' }
-    : { 'X-Mist-Session': SESSION.session || '', 'X-Mist-Host': SESSION.host || '' };
+  if (SESSION.token) return { 'X-Mist-Token': SESSION.token, 'X-Mist-Host': SESSION.host || '' };
+  const h = { 'X-Mist-Session': SESSION.session || '', 'X-Mist-Host': SESSION.host || '' };
+  if (SESSION.csrf) h['X-Mist-Csrf'] = SESSION.csrf;
+  return h;
 }
 
 // ── API proxy ──────────────────────────────────────────────────────────────────
 async function mist(path, opts = {}) {
   if (!SESSION.token && !SESSION.session) { logout(); throw new Error('Not authenticated'); }
-  const authHeaders = SESSION.token
-    ? { 'X-Mist-Token': SESSION.token }
-    : { 'X-Mist-Session': SESSION.session };
+  let ah;
+  if (SESSION.token) {
+    ah = { 'X-Mist-Token': SESSION.token };
+  } else {
+    ah = { 'X-Mist-Session': SESSION.session };
+    if (SESSION.csrf) ah['X-Mist-Csrf'] = SESSION.csrf;
+  }
   const r = await fetch('/api/v1' + path, {
     method: opts.method || 'GET',
-    headers: { 'Content-Type': 'application/json', 'X-Mist-Host': SESSION.host || '', ...authHeaders },
+    headers: { 'Content-Type': 'application/json', 'X-Mist-Host': SESSION.host || '', ...ah },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
@@ -3865,6 +3882,7 @@ async function _showHint(el, action) {
     const headers = { 'Content-Type': 'application/json' };
     if (SESSION.token)   headers['X-Mist-Token']   = SESSION.token;
     if (SESSION.session) headers['X-Mist-Session'] = SESSION.session;
+    if (SESSION.csrf)    headers['X-Mist-Csrf']    = SESSION.csrf;
     const r = await fetch('/api/v1/hover-info', { method: 'POST', headers, body: JSON.stringify({ action }) });
     const d = await r.json();
     const text = d.text || action.replace(/_/g, ' ');
