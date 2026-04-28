@@ -637,7 +637,8 @@ Respond with valid JSON only.`;
     const resp = await client.messages.create({ model, max_tokens: 2048, messages: [{ role: 'user', content: prompt }] });
     let text = (resp.content[0] as Anthropic.TextBlock).text.trim();
     if (text.startsWith('```')) text = text.split('\n').slice(1).join('\n').replace(/```$/, '').trim();
-    return JSON.parse(text) as Record<string, unknown>;
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    return { ...parsed, claude_usage: { model, input: resp.usage.input_tokens, output: resp.usage.output_tokens } };
   } catch (e) {
     const errStr = String(e);
     const creditsLow = errStr.includes('credit balance') || errStr.includes('insufficient_quota');
@@ -1197,7 +1198,7 @@ async function dispatch(
     if (!issues) { telemetry = await sdCollectTelemetry(mctx, orgId); issues = sdDetectIssues(telemetry); }
     const t0 = Date.now();
     const result = await sdClaudeDiagnose(env, issues, telemetry);
-    return json({ ...result, level: 'L2', org_id: orgId, diagnosed_at: Math.floor(Date.now() / 1000), duration_ms: Date.now() - t0, issues_analyzed: issues.length });
+    return json({ ...result, level: 'L2', org_id: orgId, diagnosed_at: Math.floor(Date.now() / 1000), duration_ms: Date.now() - t0, issues_analyzed: issues.length, claude_usage: result.claude_usage || null });
   }
 
   if ((m = path.match(/^\/api\/v1\/orgs\/([^/]+)\/self-driving\/remediate$/)) && method === 'POST') {
@@ -1242,6 +1243,7 @@ async function dispatch(
     const result = {
       pipeline: 'L1→L2→L3', org_id: orgId, completed_at: Math.floor(Date.now() / 1000),
       total_duration_ms: Date.now() - t0, dry_run: dryRun, ai_available: diagnosis.ai_available !== false,
+      claude_usage: diagnosis.claude_usage || null,
       l1_detection: {
         issues_found: issues.length, issues,
         telemetry_summary: {
@@ -1330,7 +1332,7 @@ async function dispatch(
       });
       const text = (resp.content[0] as Anthropic.TextBlock).text.trim();
       await env.AUTOMATIONS.put(cacheKey, text, { expirationTtl: 604800 });
-      return json({ text, cached: false });
+      return json({ text, cached: false, claude_usage: { model: 'claude-haiku-4-5-20251001', input: resp.usage.input_tokens, output: resp.usage.output_tokens } });
     } catch (e) {
       return json({ text: `${action.replace(/_/g,' ')} — Mist API action.`, cached: false, error: String(e) });
     }
