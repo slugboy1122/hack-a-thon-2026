@@ -27,8 +27,6 @@ interface MistEventParams {
 
 interface MistCtx {
   token: string;
-  session: string;
-  csrf: string;
   base: string;
 }
 
@@ -78,7 +76,7 @@ function handleCors(): Response {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Mist-Token, X-Mist-Host, X-Mist-Session, X-Mist-Csrf, X-Tatooine-Confirm, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Mist-Token, X-Mist-Host, X-Tatooine-Confirm, Authorization',
       'Access-Control-Max-Age': '86400',
     },
   });
@@ -96,14 +94,6 @@ function getToken(request: Request, env: Env): string {
   const auth = request.headers.get('Authorization') || '';
   if (auth.startsWith('Token ')) return auth.slice(6);
   return request.headers.get('X-Mist-Token') || env.MIST_API_TOKEN || '';
-}
-
-function getSession(request: Request): string {
-  return request.headers.get('X-Mist-Session') || '';
-}
-
-function getCsrf(request: Request): string {
-  return request.headers.get('X-Mist-Csrf') || '';
 }
 
 // Blocks live-write endpoints unless the caller explicitly acknowledges
@@ -130,12 +120,9 @@ async function mistFetch(
       if (v !== undefined && v !== '') u.searchParams.set(k, v);
     }
   }
-  const authHeader: Record<string, string> = mctx.session
-    ? { Cookie: `session=${mctx.session}`, ...(mctx.csrf ? { 'X-CSRFToken': mctx.csrf } : {}) }
-    : { Authorization: `Token ${mctx.token}` };
   return fetch(u.toString(), {
     method,
-    headers: { ...authHeader, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Token ${mctx.token}`, 'Content-Type': 'application/json' },
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
 }
@@ -941,7 +928,7 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
-    const mctx: MistCtx = { token: getToken(request, env), session: getSession(request), csrf: getCsrf(request), base: getMistBase(request, env) };
+    const mctx: MistCtx = { token: getToken(request, env), base: getMistBase(request, env) };
     const broadcaster = env.BROADCASTER.get(env.BROADCASTER.idFromName('main'));
 
     try {
@@ -984,7 +971,7 @@ async function dispatch(
   if (path === '/api/validate' && method === 'GET') {
     const tok = (request.headers.get('X-Mist-Token') || '').trim();
     if (!tok) return json({ error: 'No token provided' }, 400);
-    const r = await mistFetch({ token: tok, session: '', csrf: '', base: mctx.base }, 'GET', '/self');
+    const r = await mistFetch({ token: tok, base: mctx.base }, 'GET', '/self');
     if (r.status === 200) {
       const d = await r.json() as Record<string, unknown>;
       const email = String(d.email || '');

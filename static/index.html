@@ -1453,8 +1453,6 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
 let ORG_ID = sessionStorage.getItem('tat_orgid') || '';
 const SESSION = {
   token:   sessionStorage.getItem('tat_token') || null,
-  session: sessionStorage.getItem('tat_session') || null, // Mist session cookie (email/password login)
-  csrf:    sessionStorage.getItem('tat_csrf') || null,    // X-CSRFToken — required for session-auth writes (mistapi_python pattern)
   self:    JSON.parse(sessionStorage.getItem('tat_self') || 'null'),
   host:    sessionStorage.getItem('tat_host') || 'api.mist.com',
 };
@@ -1467,7 +1465,7 @@ let chatHistory = [];
 let tshootType = 'wireless';
 
 // ── Connect modal ──────────────────────────────────────────────────────────────
-let _connectPending = { token: null, selfData: null, privs: [], host: null };
+let _connectPending = { token: null, selfData: null, privs: [], host: '' };
 
 const ALLOWED_DOMAINS = ['hpe.com', 'juniper.net'];
 
@@ -1582,20 +1580,12 @@ function _doSelectOrg(token, selfData, priv, idx) {
     selfData = _connectPending.selfData;
     priv     = _connectPending.privs[idx];
   }
-  const session = _connectPending.session || null;
-  const csrf    = _connectPending.csrf    || null;
   ORG_ID = priv.org_id;
-  SESSION.token   = token;
-  SESSION.session = session;
-  SESSION.csrf    = csrf;
-  SESSION.host    = _connectPending.host || 'api.mist.com';
-  SESSION.self    = { ...selfData, org_id: priv.org_id };
-  if (token)   sessionStorage.setItem('tat_token',   token);
-  else         sessionStorage.removeItem('tat_token');
-  if (session) sessionStorage.setItem('tat_session', session);
-  else         sessionStorage.removeItem('tat_session');
-  if (csrf)    sessionStorage.setItem('tat_csrf',    csrf);
-  else         sessionStorage.removeItem('tat_csrf');
+  SESSION.token = token;
+  SESSION.host  = _connectPending.host || 'api.mist.com';
+  SESSION.self  = { ...selfData, org_id: priv.org_id };
+  if (token) sessionStorage.setItem('tat_token', token);
+  else       sessionStorage.removeItem('tat_token');
   sessionStorage.setItem('tat_host',  SESSION.host);
   sessionStorage.setItem('tat_orgid', priv.org_id);
   sessionStorage.setItem('tat_self',  JSON.stringify(SESSION.self));
@@ -1635,11 +1625,9 @@ function toggleTheme() {
 
 function logout() {
   sessionStorage.removeItem('tat_token');
-  sessionStorage.removeItem('tat_session');
-  sessionStorage.removeItem('tat_csrf');
   sessionStorage.removeItem('tat_self');
   sessionStorage.removeItem('tat_orgid');
-  SESSION.token = null; SESSION.session = null; SESSION.csrf = null; SESSION.self = null; ORG_ID = '';
+  SESSION.token = null; SESSION.self = null; ORG_ID = '';
   document.getElementById('app-shell').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   // Reset connect modal
@@ -3728,10 +3716,7 @@ async function _showHint(el, action) {
     return;
   }
   try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (SESSION.token)   headers['X-Mist-Token']   = SESSION.token;
-    if (SESSION.session) headers['X-Mist-Session'] = SESSION.session;
-    if (SESSION.csrf)    headers['X-Mist-Csrf']    = SESSION.csrf;
+    const headers = { 'Content-Type': 'application/json', 'X-Mist-Token': SESSION.token || '' };
     const r = await fetch('/api/v1/hover-info', { method: 'POST', headers, body: JSON.stringify({ action }) });
     const d = await r.json();
     if (d.claude_usage) _trackClaudeUsage(d.claude_usage);
