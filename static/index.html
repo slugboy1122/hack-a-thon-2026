@@ -2377,6 +2377,48 @@ function appendSpinner() {
   return div;
 }
 
+// Claude token tracking — { model: { input, output } }
+const _claudeTokens = {};
+
+function _trackClaudeUsage(usage) {
+  if (!usage || !usage.model) return;
+  const key = usage.model.includes('haiku') ? 'Haiku' : 'Sonnet';
+  if (!_claudeTokens[key]) _claudeTokens[key] = { input: 0, output: 0 };
+  _claudeTokens[key].input  += usage.input  || 0;
+  _claudeTokens[key].output += usage.output || 0;
+  _renderClaudeCounter();
+}
+
+function _renderClaudeCounter() {
+  const section = document.getElementById('claude-ctr-section');
+  const rows    = document.getElementById('claude-ctr-rows');
+  const total   = document.getElementById('claude-ctr-total');
+  if (!section || !rows || !total) return;
+  const entries = Object.entries(_claudeTokens);
+  if (!entries.length) return;
+  section.style.display = '';
+  rows.textContent = '';
+  let totalIn = 0, totalOut = 0;
+  for (const [model, { input, output }] of entries) {
+    totalIn += input; totalOut += output;
+    const row = document.createElement('div');
+    row.className = 'claude-ctr-row';
+    const nm = document.createElement('span');
+    nm.className = 'claude-ctr-model';
+    nm.textContent = model;
+    const tk = document.createElement('span');
+    tk.className = 'claude-ctr-tokens';
+    tk.textContent = _fmtTokens(input) + '↑ ' + _fmtTokens(output) + '↓';
+    row.appendChild(nm); row.appendChild(tk);
+    rows.appendChild(row);
+  }
+  total.textContent = _fmtTokens(totalIn + totalOut) + ' total';
+}
+
+function _fmtTokens(n) {
+  return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+}
+
 async function sendChat() {
   const input = document.getElementById('chat-input');
   const send  = document.getElementById('chat-send');
@@ -3769,48 +3811,6 @@ let _apiCallCount = 0;
 let _apiTotalSecs  = 0;
 let _apiFlashTimer = null;
 const _apiEndpointCounts = {};  // label→count for per-endpoint breakdown
-
-// Claude token tracking — { model: { input, output } }
-const _claudeTokens = {};
-
-function _trackClaudeUsage(usage) {
-  if (!usage || !usage.model) return;
-  const key = usage.model.includes('haiku') ? 'Haiku' : 'Sonnet';
-  if (!_claudeTokens[key]) _claudeTokens[key] = { input: 0, output: 0 };
-  _claudeTokens[key].input  += usage.input  || 0;
-  _claudeTokens[key].output += usage.output || 0;
-  _renderClaudeCounter();
-}
-
-function _renderClaudeCounter() {
-  const section = document.getElementById('claude-ctr-section');
-  const rows    = document.getElementById('claude-ctr-rows');
-  const total   = document.getElementById('claude-ctr-total');
-  if (!section || !rows || !total) return;
-  const entries = Object.entries(_claudeTokens);
-  if (!entries.length) return;
-  section.style.display = '';
-  rows.textContent = '';
-  let totalIn = 0, totalOut = 0;
-  for (const [model, { input, output }] of entries) {
-    totalIn += input; totalOut += output;
-    const row = document.createElement('div');
-    row.className = 'claude-ctr-row';
-    const nm = document.createElement('span');
-    nm.className = 'claude-ctr-model';
-    nm.textContent = model;
-    const tk = document.createElement('span');
-    tk.className = 'claude-ctr-tokens';
-    tk.textContent = _fmtTokens(input) + '↑ ' + _fmtTokens(output) + '↓';
-    row.appendChild(nm); row.appendChild(tk);
-    rows.appendChild(row);
-  }
-  total.textContent = _fmtTokens(totalIn + totalOut) + ' total';
-}
-
-function _fmtTokens(n) {
-  return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
-}
 
 function _endpointLabel(path) {
   if (!path) return 'other';
