@@ -42,7 +42,7 @@
     }
   ],
   "vars": {
-    "CLAUDE_MODEL": "claude-sonnet-4-6",
+    "CLAUDE_MODEL": "claude-haiku-4-5-20251001",
     "MIST_API_URL": "https://api.mist.com/api/v1"
   }
   // Secrets (set with `wrangler secret put <NAME>`):

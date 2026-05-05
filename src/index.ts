@@ -975,10 +975,6 @@ async function dispatch(
     if (r.status === 200) {
       const d = await r.json() as Record<string, unknown>;
       const email = String(d.email || '');
-      const domain = (email.split('@')[1] ?? '').toLowerCase();
-      if (domain !== 'hpe.com' && domain !== 'juniper.net') {
-        return json({ error: 'Access restricted to @hpe.com and @juniper.net accounts.' }, 403);
-      }
       const privs = (d.privileges as Array<Record<string, unknown>>) || [];
       const orgPriv = privs.find((p) => p.scope === 'org') ?? privs[0] ?? null;
       return json({
