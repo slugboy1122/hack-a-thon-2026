@@ -320,12 +320,152 @@ const CLAUDE_TOOLS: Anthropic.Tool[] = [
   },
 ];
 
+// ─── File Upload Helpers ─────────────────────────────────────────────────────
+
+function parsePcap(name: string, buf: ArrayBuffer): string {
+  const dv = new DataView(buf);
+  if (buf.byteLength < 24) return `[${name}]: PCAP file too small`;
+  const magic = dv.getUint32(0, true);
+  const le = magic === 0xa1b2c3d4 || magic === 0xa1b23c4d;
+  if (magic !== 0xa1b2c3d4 && magic !== 0xd4c3b2a1 && magic !== 0xa1b23c4d && magic !== 0x4d3cb2a1)
+    return `[${name}]: Not a valid PCAP file (magic=0x${magic.toString(16)})`;
+  const linkType = dv.getUint32(20, le) & 0xffff;
+  const lines: string[] = [`PCAP capture: ${name}`, `Link type: ${linkType === 1 ? 'Ethernet' : linkType === 105 ? '802.11' : `type ${linkType}`}`];
+  let offset = 24, count = 0, firstTs = 0, lastTs = 0;
+  const pkts: string[] = [];
+  while (offset + 16 <= buf.byteLength) {
+    const tsSec = dv.getUint32(offset, le);
+    const tsUsec = dv.getUint32(offset + 4, le);
+    const inclLen = dv.getUint32(offset + 8, le);
+    const origLen = dv.getUint32(offset + 12, le);
+    if (inclLen > 65535 || offset + 16 + inclLen > buf.byteLength) break;
+    if (count === 0) firstTs = tsSec; lastTs = tsSec;
+    if (count < 200 && linkType === 1 && inclLen >= 14) {
+      const p = offset + 16;
+      const eth = dv.getUint16(p + 12, false);
+      let desc = `#${count+1} ${new Date(tsSec*1000).toISOString().slice(11,23)} len=${origLen}`;
+      if (eth === 0x0800 && inclLen >= 34) {
+        const ihl = (dv.getUint8(p+14) & 0x0f) * 4;
+        const proto = dv.getUint8(p+23);
+        const sip = `${dv.getUint8(p+26)}.${dv.getUint8(p+27)}.${dv.getUint8(p+28)}.${dv.getUint8(p+29)}`;
+        const dip = `${dv.getUint8(p+30)}.${dv.getUint8(p+31)}.${dv.getUint8(p+32)}.${dv.getUint8(p+33)}`;
+        if ((proto === 6 || proto === 17) && inclLen >= 14 + ihl + 4) {
+          const sp = dv.getUint16(p+14+ihl, false), dp = dv.getUint16(p+14+ihl+2, false);
+          let flags = '';
+          if (proto === 6 && inclLen >= 14+ihl+14) {
+            const f = dv.getUint8(p+14+ihl+13);
+            flags = ' [' + ['FIN','SYN','RST','PSH','ACK','URG'].filter((_,i)=>f&(1<<i)).join(',') + ']';
+          }
+          desc += ` ${proto===6?'TCP':'UDP'} ${sip}:${sp}→${dip}:${dp}${flags}`;
+        } else {
+          desc += ` ${proto===1?'ICMP':proto===89?'OSPF':`proto=${proto}`} ${sip}→${dip}`;
+        }
+      } else if (eth === 0x0806) { desc += ' ARP';
+      } else if (eth === 0x86dd) { desc += ' IPv6';
+      } else { desc += ` eth=0x${eth.toString(16)}`; }
+      pkts.push(desc);
+    }
+    offset += 16 + inclLen; count++;
+  }
+  lines.push(`Packets: ${count}, duration: ${(lastTs-firstTs).toFixed(3)}s`);
+  if (count) lines.push(`Range: ${new Date(firstTs*1000).toISOString()} — ${new Date(lastTs*1000).toISOString()}`);
+  lines.push('', 'Packet summary:', ...pkts);
+  if (count > 200) lines.push(`...and ${count-200} more packets`);
+  return lines.join('\n');
+}
+
+async function parseZip(name: string, buf: ArrayBuffer): Promise<string> {
+  const b = new Uint8Array(buf);
+  const lines = [`ZIP archive: ${name}`];
+  const files: Array<{filename:string;method:number;compSize:number;uncompSize:number;dataOffset:number}> = [];
+  let off = 0;
+  while (off + 30 <= b.length) {
+    const sig = (b[off] | b[off+1]<<8 | b[off+2]<<16 | b[off+3]<<24) >>> 0;
+    if (sig !== 0x04034b50) { off++; continue; }
+    const method = b[off+8] | b[off+9]<<8;
+    const compSize = b[off+18] | b[off+19]<<8 | b[off+20]<<16 | b[off+21]<<24;
+    const uncompSize = b[off+22] | b[off+23]<<8 | b[off+24]<<16 | b[off+25]<<24;
+    const nameLen = b[off+26] | b[off+27]<<8;
+    const extraLen = b[off+28] | b[off+29]<<8;
+    const filename = new TextDecoder().decode(b.slice(off+30, off+30+nameLen));
+    const dataOff = off + 30 + nameLen + extraLen;
+    files.push({ filename, method, compSize, uncompSize, dataOffset: dataOff });
+    lines.push(`  ${filename} (${uncompSize} bytes${method===0?', stored':method===8?', deflate':`, method ${method}`})`);
+    off = dataOff + compSize;
+  }
+  lines.push(`\nTotal: ${files.length} files`);
+  const extracted: string[] = [];
+  for (const f of files) {
+    if (f.uncompSize > 500_000) continue;
+    if (!/\.(log|txt|csv|conf|cfg|xml|json|yml|yaml|html|md|cap|syslog)$/i.test(f.filename)) continue;
+    const raw = b.slice(f.dataOffset, f.dataOffset + f.compSize);
+    try {
+      let text: string;
+      if (f.method === 0) {
+        text = new TextDecoder('utf-8', {fatal:false}).decode(raw);
+      } else if (f.method === 8) {
+        const ds = new DecompressionStream('deflate-raw');
+        const w = ds.writable.getWriter(); w.write(raw); w.close();
+        const chunks: Uint8Array[] = [];
+        for (const r = ds.readable.getReader();;) {
+          const {done,value} = await r.read();
+          if (done) break;
+          chunks.push(value as Uint8Array);
+        }
+        const out = new Uint8Array(chunks.reduce((a,c)=>a+c.length,0));
+        let p = 0; for (const c of chunks) { out.set(c,p); p+=c.length; }
+        text = new TextDecoder('utf-8', {fatal:false}).decode(out);
+      } else continue;
+      extracted.push(`\n=== ${f.filename} ===\n${text.slice(0, 20000)}${text.length>20000?'\n[truncated]':''}`);
+    } catch { extracted.push(`\n=== ${f.filename} ===\n[Could not extract]`); }
+  }
+  if (extracted.length) { lines.push('\n--- Extracted files ---'); lines.push(...extracted); }
+  return lines.join('\n');
+}
+
+async function processUploadedFile(name: string, base64: string): Promise<string> {
+  if (base64.length > 15_000_000) return `[${name}]: File too large (max ~10MB)`;
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  const lower = name.toLowerCase();
+  if (/\.(log|txt|csv|tsv|json|xml|conf|cfg|yml|yaml|syslog|out|err)$/i.test(lower)) {
+    const text = new TextDecoder('utf-8', {fatal:false}).decode(bytes);
+    return `=== Uploaded log file: ${name} ===\n${text.length>80000?text.slice(0,80000)+'\n[truncated at 80k chars]':text}`;
+  }
+  if (/\.pcapng$/i.test(lower)) {
+    return `=== Uploaded packet capture: ${name} ===\n[PCAPNG format — ${bytes.length} bytes. Note: full PCAPNG parsing not available; recommend converting to PCAP2.4 via tshark -F pcap]`;
+  }
+  if (/\.(pcap|cap)$/i.test(lower)) {
+    return `=== Uploaded packet capture: ${name} ===\n${parsePcap(name, bytes.buffer)}`;
+  }
+  if (/\.zip$/i.test(lower)) {
+    return `=== Uploaded ZIP archive: ${name} ===\n${await parseZip(name, bytes.buffer)}`;
+  }
+  try {
+    const text = new TextDecoder('utf-8', {fatal:true}).decode(bytes);
+    return `=== Uploaded file: ${name} ===\n${text.slice(0,80000)}`;
+  } catch {
+    return `=== Uploaded file: ${name} ===\n[Binary file, ${bytes.length} bytes — unable to decode as text]`;
+  }
+}
+
+// ─── Chat Handler ─────────────────────────────────────────────────────────────
+
 async function handleChat(request: Request, env: Env, mctx: MistCtx): Promise<Response> {
-  let data: { query?: string; history?: Anthropic.MessageParam[]; org_id?: string };
+  let data: { query?: string; history?: Anthropic.MessageParam[]; org_id?: string; file?: { name: string; data: string } };
   try { data = await request.json() as typeof data; }
   catch { return json({ error: 'Invalid JSON body' }, 400); }
 
   if (!data.query) return json({ error: 'query required' }, 400);
+
+  let userContent = data.query;
+  if (data.file?.name && data.file?.data) {
+    try {
+      const fileText = await processUploadedFile(data.file.name, data.file.data);
+      userContent = `${data.query}\n\n${fileText}`;
+    } catch (e) {
+      userContent = `${data.query}\n\n[File processing error: ${String(e)}]`;
+    }
+  }
 
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const model = env.CLAUDE_MODEL || 'claude-sonnet-4-6';
@@ -335,7 +475,7 @@ async function handleChat(request: Request, env: Env, mctx: MistCtx): Promise<Re
 
   const messages: Anthropic.MessageParam[] = [
     ...(data.history || []),
-    { role: 'user', content: data.query },
+    { role: 'user', content: userContent },
   ];
 
   try {

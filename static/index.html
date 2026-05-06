@@ -409,6 +409,33 @@ html[data-theme="light"] .ap-table th.sort-desc::after{color:var(--accent2)}
 }
 .marvis-input:focus{border-color:var(--accent)}
 .marvis-input::placeholder{color:var(--muted)}
+/* file upload UI */
+.chat-attach-btn{
+  background:var(--bg3);border:1px solid var(--border2);color:var(--muted2);
+  padding:9px 11px;cursor:pointer;font-size:14px;line-height:1;
+  transition:color var(--transition),border-color var(--transition);flex-shrink:0;
+}
+.chat-attach-btn:hover{color:var(--accent);border-color:var(--accent)}
+.chat-attach-btn.has-file{color:var(--accent);border-color:var(--accent)}
+.chat-file-pill{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(232,160,64,0.1);border:1px solid rgba(232,160,64,0.3);
+  padding:4px 8px 4px 10px;font-family:var(--mono);font-size:11px;color:var(--accent);
+  margin-top:8px;
+}
+.chat-file-pill-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-file-pill-rm{background:none;border:none;color:var(--muted2);cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
+.chat-file-pill-rm:hover{color:var(--danger)}
+#chat-file-warning{
+  display:none;background:rgba(201,79,53,0.08);border:1px solid rgba(201,79,53,0.35);
+  padding:12px 14px;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--text);
+  line-height:1.7;
+}
+#chat-file-warning.show{display:block}
+.file-warn-title{color:var(--danger);font-weight:700;margin-bottom:5px;font-size:12px}
+.file-warn-ack{display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer}
+.file-warn-ack input[type=checkbox]{accent-color:var(--warn);width:14px;height:14px;cursor:pointer}
+.file-warn-ack label{cursor:pointer;color:var(--warn);font-size:11px}
 
 /* ── Troubleshoot overlay ── */
 .tshoot-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:flex-start;justify-content:center;padding-top:60px}
@@ -1126,10 +1153,32 @@ html[data-theme="light"] .org-option:hover{border-color:var(--accent);background
               <div class="chat-bubble chat-ai">Hello. I'm your Mist Network AI assistant powered by Claude. I have live access to your Mist org and can query devices, sites, WLANs, alarms, and more. What would you like to know?</div>
             </div>
             <div style="display:flex;gap:8px;margin-top:14px">
+              <button class="chat-attach-btn" id="chat-attach-btn" title="Attach log file, packet capture, or ZIP" onclick="triggerFileUpload()">📎</button>
+              <input type="file" id="chat-file-input" accept=".log,.txt,.csv,.pcap,.pcapng,.cap,.zip,.conf,.cfg,.syslog,.out,.err" style="display:none" onchange="onFileSelected(this)">
               <input class="marvis-input" id="chat-input"
                 placeholder="Ask anything about your network... e.g. 'Which APs are offline?'"
                 onkeydown="if(event.key==='Enter')sendChat()">
               <button class="btn btn-primary" id="chat-send" onclick="sendChat()" data-hover-action="send_chat">Send →</button>
+            </div>
+            <div id="chat-file-pill" style="display:none" class="chat-file-pill">
+              <span style="color:var(--muted2);font-size:11px">📄</span>
+              <span class="chat-file-pill-name" id="chat-file-pill-name"></span>
+              <span id="chat-file-pill-size" style="color:var(--muted);font-size:10px"></span>
+              <button class="chat-file-pill-rm" onclick="clearAttachment()" title="Remove file">✕</button>
+            </div>
+            <div id="chat-file-warning">
+              <div class="file-warn-title">⚠ File Upload Warning</div>
+              <div>The selected file may contain sensitive information including IP addresses, MAC addresses, credentials, network topology, and user data. By uploading:</div>
+              <ul style="margin:6px 0 0 16px;line-height:1.9">
+                <li>The file is transmitted to this server over HTTPS</li>
+                <li>It is processed <strong>entirely in memory</strong> — never written to disk or any storage</li>
+                <li>It is <strong>permanently deleted</strong> when analysis completes</li>
+                <li>Do not upload files containing passwords, private keys, or regulated personal data</li>
+              </ul>
+              <div class="file-warn-ack">
+                <input type="checkbox" id="file-warn-ack-cb" onchange="onWarnAck(this)">
+                <label for="file-warn-ack-cb">I understand the risks and confirm this file does not contain regulated personal data or credentials</label>
+              </div>
             </div>
           </div>
         </div>
@@ -2238,6 +2287,50 @@ function renderEventLog(el, items) {
 }
 
 // ── AI Chat ────────────────────────────────────────────────────────────────────
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+let _chatFile = null; // { name, base64 } — null when no file attached
+
+function triggerFileUpload() {
+  document.getElementById('chat-file-input').click();
+}
+
+function onFileSelected(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  input.value = ''; // reset so same file can be re-selected
+  if (file.size > MAX_FILE_BYTES) {
+    alert(`File is too large (${(file.size/1024/1024).toFixed(1)} MB). Maximum allowed size is 10 MB.`);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const b64 = e.target.result.split(',')[1]; // strip data:...;base64, prefix
+    _chatFile = { name: file.name, base64: b64 };
+    document.getElementById('chat-file-pill-name').textContent = file.name;
+    document.getElementById('chat-file-pill-size').textContent = `(${(file.size/1024).toFixed(1)} KB)`;
+    document.getElementById('chat-file-pill').style.display = 'flex';
+    document.getElementById('chat-attach-btn').classList.add('has-file');
+    document.getElementById('chat-file-warning').classList.add('show');
+    document.getElementById('file-warn-ack-cb').checked = false;
+    document.getElementById('chat-send').disabled = true;
+  };
+  reader.readAsDataURL(file);
+}
+
+function onWarnAck(cb) {
+  document.getElementById('chat-send').disabled = !cb.checked;
+}
+
+function clearAttachment() {
+  _chatFile = null;
+  document.getElementById('chat-file-pill').style.display = 'none';
+  document.getElementById('chat-file-pill-name').textContent = '';
+  document.getElementById('chat-attach-btn').classList.remove('has-file');
+  document.getElementById('chat-file-warning').classList.remove('show');
+  document.getElementById('file-warn-ack-cb').checked = false;
+  document.getElementById('chat-send').disabled = false;
+}
+
 function appendMsg(role, content) {
   const el = document.getElementById('chat-messages');
   const div = document.createElement('div');
@@ -2304,20 +2397,25 @@ async function sendChat() {
   const input = document.getElementById('chat-input');
   const send  = document.getElementById('chat-send');
   const query = input.value.trim();
-  if (!query) return;
+  if (!query && !_chatFile) return;
+  const fileSnapshot = _chatFile; // capture before clearing
   input.value = ''; input.disabled = true; send.disabled = true;
-  appendMsg('user', query);
-  chatHistory.push({ role: 'user', content: query });
+  const displayQuery = query || `[Analyzing file: ${fileSnapshot?.name}]`;
+  appendMsg('user', fileSnapshot ? `${displayQuery}\n📎 ${fileSnapshot.name}` : displayQuery);
+  chatHistory.push({ role: 'user', content: displayQuery });
+  if (fileSnapshot) clearAttachment(); // wipe file reference from UI immediately
   const spin = appendSpinner();
   try {
+    const body = { query: query || `Please analyze the attached file and summarize any network issues, errors, or anomalies found.`, history: chatHistory.slice(-10) };
+    if (fileSnapshot) body.file = { name: fileSnapshot.name, data: fileSnapshot.base64 };
     const r = await fetch('/api/v1/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ query, history: chatHistory.slice(-10) }),
+      body: JSON.stringify(body),
     });
     const d = await r.json();
     spin.remove();
-    if (d.usage) _trackClaudeUsage({ model: 'claude-sonnet-4-6', input: d.usage.input, output: d.usage.output });
+    if (d.usage) _trackClaudeUsage({ model: 'claude-haiku-4-5-20251001', input: d.usage.input, output: d.usage.output });
     const reply = d.response || d.error || 'No response';
     appendMsg('assistant', reply);
     chatHistory.push({ role: 'assistant', content: reply });
@@ -2333,6 +2431,7 @@ function quickAsk(q) {
 
 function clearChat() {
   chatHistory = [];
+  clearAttachment();
   document.getElementById('chat-messages').innerHTML =
     '<div class="chat-bubble chat-ai">Chat cleared. How can I help?</div>';
 }
