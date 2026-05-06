@@ -374,6 +374,75 @@ function parsePcap(name: string, buf: ArrayBuffer): string {
   return lines.join('\n');
 }
 
+function parsePcapng(name: string, buf: ArrayBuffer): string {
+  const dv = new DataView(buf);
+  if (buf.byteLength < 28) return `[${name}]: PCAPNG file too small`;
+  // First block must be SHB (0x0A0D0D0A)
+  const shbType = dv.getUint32(0, true);
+  if (shbType !== 0x0A0D0D0A) return `[${name}]: Not a valid PCAPNG (bad SHB type 0x${shbType.toString(16)})`;
+  // Byte-order magic at SHB offset 8
+  const bom = dv.getUint32(8, true);
+  const le = bom === 0x1A2B3C4D;
+  if (bom !== 0x1A2B3C4D && bom !== 0x4D3C2B1A) return `[${name}]: PCAPNG bad byte-order magic`;
+  const lines: string[] = [`PCAPNG capture: ${name}`];
+  const ifaces: Array<{linkType: number}> = [];
+  let offset = 0, count = 0, firstTs = 0, lastTs = 0;
+  const pkts: string[] = [];
+  while (offset + 12 <= buf.byteLength) {
+    const blockType = dv.getUint32(offset, le);
+    const blockLen  = dv.getUint32(offset + 4, le);
+    if (blockLen < 12 || offset + blockLen > buf.byteLength) break;
+    if (blockType === 0x00000001) {
+      // Interface Description Block
+      const lt = dv.getUint16(offset + 8, le);
+      ifaces.push({ linkType: lt });
+      lines.push(`Interface ${ifaces.length-1}: ${lt===1?'Ethernet':lt===105?'802.11':`link_type=${lt}`}`);
+    } else if (blockType === 0x00000006) {
+      // Enhanced Packet Block
+      const ifIdx   = dv.getUint32(offset + 8, le);
+      const tsHigh  = dv.getUint32(offset + 12, le);
+      const tsLow   = dv.getUint32(offset + 16, le);
+      const capLen  = dv.getUint32(offset + 20, le);
+      const origLen = dv.getUint32(offset + 24, le);
+      // Default timestamp resolution is 1 µs
+      const tsUs = tsHigh * 4294967296 + tsLow;
+      const tsSec = tsUs / 1e6;
+      if (count === 0) firstTs = tsSec; lastTs = tsSec;
+      const lt = (ifaces[ifIdx] || { linkType: 1 }).linkType;
+      const p = offset + 28; // packet data starts here
+      if (count < 200 && lt === 1 && capLen >= 14 && p + 14 <= buf.byteLength) {
+        const eth = dv.getUint16(p + 12, false);
+        let desc = `#${count+1} ${new Date(tsSec*1000).toISOString().slice(11,23)} len=${origLen}`;
+        if (eth === 0x0800 && p + 34 <= buf.byteLength) {
+          const ihl = (dv.getUint8(p+14) & 0x0f) * 4;
+          const proto = dv.getUint8(p+23);
+          const sip = `${dv.getUint8(p+26)}.${dv.getUint8(p+27)}.${dv.getUint8(p+28)}.${dv.getUint8(p+29)}`;
+          const dip = `${dv.getUint8(p+30)}.${dv.getUint8(p+31)}.${dv.getUint8(p+32)}.${dv.getUint8(p+33)}`;
+          if ((proto===6||proto===17) && p+14+ihl+4 <= buf.byteLength) {
+            const sp=dv.getUint16(p+14+ihl,false), dp=dv.getUint16(p+14+ihl+2,false);
+            let flags='';
+            if (proto===6 && p+14+ihl+14<=buf.byteLength){const f=dv.getUint8(p+14+ihl+13);flags=' ['+['FIN','SYN','RST','PSH','ACK','URG'].filter((_,i)=>f&(1<<i)).join(',')+']';}
+            desc+=` ${proto===6?'TCP':'UDP'} ${sip}:${sp}→${dip}:${dp}${flags}`;
+          } else { desc+=` ${proto===1?'ICMP':proto===89?'OSPF':`proto=${proto}`} ${sip}→${dip}`; }
+        } else if (eth===0x0806){desc+=' ARP';}
+          else if (eth===0x86dd){desc+=' IPv6';}
+          else {desc+=` eth=0x${eth.toString(16)}`;}
+        pkts.push(desc);
+      }
+      count++;
+    } else if (blockType === 0x00000003) {
+      count++; // Simple Packet Block — count only
+    }
+    offset += blockLen;
+  }
+  const duration = lastTs - firstTs;
+  lines.push(`Packets: ${count}, duration: ${duration.toFixed(3)}s`);
+  if (count) lines.push(`Range: ${new Date(firstTs*1000).toISOString()} — ${new Date(lastTs*1000).toISOString()}`);
+  lines.push('', 'Packet summary:', ...pkts);
+  if (count > 200) lines.push(`...and ${count-200} more packets`);
+  return lines.join('\n');
+}
+
 async function parseZip(name: string, buf: ArrayBuffer): Promise<string> {
   const b = new Uint8Array(buf);
   const lines = [`ZIP archive: ${name}`];
@@ -432,7 +501,7 @@ async function processUploadedFile(name: string, base64: string): Promise<string
     return `=== Uploaded log file: ${name} ===\n${text.length>80000?text.slice(0,80000)+'\n[truncated at 80k chars]':text}`;
   }
   if (/\.pcapng$/i.test(lower)) {
-    return `=== Uploaded packet capture: ${name} ===\n[PCAPNG format — ${bytes.length} bytes. Note: full PCAPNG parsing not available; recommend converting to PCAP2.4 via tshark -F pcap]`;
+    return `=== Uploaded packet capture: ${name} ===\n${parsePcapng(name, bytes.buffer)}`;
   }
   if (/\.(pcap|cap)$/i.test(lower)) {
     return `=== Uploaded packet capture: ${name} ===\n${parsePcap(name, bytes.buffer)}`;
@@ -471,7 +540,8 @@ async function handleChat(request: Request, env: Env, mctx: MistCtx): Promise<Re
   const model = env.CLAUDE_MODEL || 'claude-sonnet-4-6';
   const orgId = data.org_id || 'not configured';
 
-  const system = `You are an expert Mist Network assistant with access to the Mist Cloud API. Org ID: ${orgId}. Mist API: ${mctx.token ? 'connected' : 'not configured'}. Use the available tools to fetch real-time data. Be concise and actionable.`;
+  const hasFile = !!(data.file?.name);
+  const system = `You are an expert Mist Network assistant with access to the Mist Cloud API. Org ID: ${orgId}. Mist API: ${mctx.token ? 'connected' : 'not configured'}. Use the available tools to fetch real-time data. Be concise and actionable.${hasFile ? `\n\nThe user has uploaded a file for analysis. The parsed content is included directly in their message (marked with === Uploaded ... ===). Analyze it thoroughly: identify errors, anomalies, traffic patterns, retransmissions, connection failures, unusual IPs/ports, or anything noteworthy. Provide specific line references or packet numbers where relevant. Do not say you cannot analyze files — the content is already decoded and present in the message.` : ''}`;
 
   const messages: Anthropic.MessageParam[] = [
     ...(data.history || []),
